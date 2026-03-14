@@ -1,2 +1,2 @@
-Flask
-python-shogi
+Flask>=3.0.0
+python-shogi>=1.1.1

@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{{ title }}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
+</head>
+<body>
+  <header class="container">
+    <h1>履歴</h1>
+    <nav>
+      <a href="{{ url_for('index') }}">トップ</a>
+      <a href="{{ url_for('history') }}">履歴</a>
+      <a href="{{ url_for('admin') }}">管理</a>
+    </nav>
+  </header>
+
+  <main class="container">
+    <section class="card">
+      <h2>これまでの指し手</h2>
+      {% if moves %}
+        <ol>
+          {% for m in moves %}
+            <li>{{ m['ply'] }}手目: {{ m['kif'] }}（{{ m['voted_count'] }}票）</li>
+          {% endfor %}
+        </ol>
+      {% else %}
+        <p>まだ指し手はありません。</p>
+      {% endif %}
+    </section>
+
+    <section class="card">
+      <h2>各時点の局面</h2>
+      {% for b in boards %}
+        <h3>{{ b.ply }}手目後</h3>
+        <div class="board-wrap">
+          <table class="board mini">
+            <tbody>
+            {% for row in b.grid %}
+              <tr>
+                {% for cell in row %}
+                  <td>{{ cell }}</td>
+                {% endfor %}
+              </tr>
+            {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% endfor %}
+    </section>
+  </main>
+</body>
+</html>
