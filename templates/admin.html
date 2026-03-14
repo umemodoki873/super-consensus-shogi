@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{{ title }}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
+</head>
+<body>
+  <header class="container">
+    <h1>管理ページ</h1>
+    <nav>
+      <a href="{{ url_for('index') }}">トップ</a>
+      <a href="{{ url_for('history') }}">履歴</a>
+      <a href="{{ url_for('admin') }}">管理</a>
+    </nav>
+  </header>
+
+  <main class="container">
+    {% if message %}
+      <p class="notice">{{ message }}</p>
+    {% endif %}
+
+    <section class="card">
+      <h2>手動操作</h2>
+      <form method="post">
+        <input type="hidden" name="action" value="finalize" />
+        <button type="submit">今すぐ集計して1手進める</button>
+      </form>
+      <form method="post">
+        <input type="hidden" name="action" value="new_game" />
+        <button type="submit">新しい対局を開始</button>
+      </form>
+    </section>
+
+    <section class="card">
+      <h2>締切設定</h2>
+      <form method="post" class="inline">
+        <input type="hidden" name="action" value="save_settings" />
+        <label>時
+          <input type="number" name="cutoff_hour" min="0" max="23" value="{{ cutoff_hour }}" />
+        </label>
+        <label>分
+          <input type="number" name="cutoff_minute" min="0" max="59" value="{{ cutoff_minute }}" />
+        </label>
+        <button type="submit">保存</button>
+      </form>
+      <p>※ 本番では cron で毎日この時刻に集計処理を呼ぶ運用を想定。</p>
+    </section>
+  </main>
+</body>
+</html>
