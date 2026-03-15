@@ -168,6 +168,39 @@ def board_to_grid(board: shogi.Board):
     return grid
 
 
+def build_board_cells(board: shogi.Board, is_rotated: bool):
+    rows = []
+    for rank in range(9):
+        row = []
+        for file in range(9):
+            square = (8 - file) + rank * 9
+            piece = board.piece_at(square)
+            usi_square = f"{9 - file}{chr(ord('a') + rank)}"
+            piece_symbol = piece.japanese_symbol() if piece else ""
+            row.append(
+                {
+                    "usi_square": usi_square,
+                    "piece_symbol": piece_symbol,
+                    "piece_class": piece_class(piece, is_rotated),
+                }
+            )
+        rows.append(row)
+
+    if is_rotated:
+        rows = [list(reversed(row)) for row in reversed(rows)]
+    return rows
+
+
+def piece_class(piece: Optional[shogi.Piece], is_rotated: bool) -> str:
+    if piece is None:
+        return ""
+
+    # 盤を回転していないときは後手駒を反転、回転時は先手駒を反転
+    if (not is_rotated and piece.color == shogi.WHITE) or (is_rotated and piece.color == shogi.BLACK):
+        return "piece-opponent"
+    return "piece-own"
+
+
 def side_to_move_label(board: shogi.Board) -> str:
     return "先手" if board.turn == shogi.BLACK else "後手"
 
@@ -193,6 +226,72 @@ def move_to_kif(move: shogi.Move, board: shogi.Board) -> str:
         return shogi.KIF.move_to_kif(move, board)
     except Exception:
         return move.usi()
+
+
+def hand_piece_name(piece_type: int) -> str:
+    names = {
+        shogi.PAWN: "歩",
+        shogi.LANCE: "香",
+        shogi.KNIGHT: "桂",
+        shogi.SILVER: "銀",
+        shogi.GOLD: "金",
+        shogi.BISHOP: "角",
+        shogi.ROOK: "飛",
+    }
+    return names.get(piece_type, "駒")
+
+
+def hand_piece_usi(piece_type: int) -> str:
+    mapping = {
+        shogi.PAWN: "P",
+        shogi.LANCE: "L",
+        shogi.KNIGHT: "N",
+        shogi.SILVER: "S",
+        shogi.GOLD: "G",
+        shogi.BISHOP: "B",
+        shogi.ROOK: "R",
+    }
+    return mapping.get(piece_type, "")
+
+
+def build_hand_data(board: shogi.Board, color: int, interactive: bool):
+    hand = board.pieces_in_hand[color]
+    order = [
+        shogi.ROOK,
+        shogi.BISHOP,
+        shogi.GOLD,
+        shogi.SILVER,
+        shogi.KNIGHT,
+        shogi.LANCE,
+        shogi.PAWN,
+    ]
+    result = []
+    for piece_type in order:
+        count = hand.get(piece_type, 0)
+        if count > 0:
+            result.append(
+                {
+                    "name": hand_piece_name(piece_type),
+                    "usi": hand_piece_usi(piece_type),
+                    "count": count,
+                    "interactive": interactive,
+                }
+            )
+    return result
+
+
+def get_last_move_info(game_id: int) -> str:
+    db = get_db()
+    row = db.execute(
+        "SELECT ply, kif FROM moves WHERE game_id = ? ORDER BY ply DESC LIMIT 1",
+        (game_id,),
+    ).fetchone()
+    if row is None:
+        return "開始局面"
+
+    ply = int(row["ply"])
+    mark = "▲" if ply % 2 == 1 else "△"
+    return f"{ply}手目 {mark}{row['kif']}まで"
 
 
 def get_cutoff_datetime(now: datetime) -> datetime:
@@ -352,39 +451,58 @@ def index():
     board = build_board(game_id)
     round_index = get_round_index(game_id)
     legal_moves = [] if board.is_game_over() else list_legal_moves(board)
-    ranking = get_vote_ranking(game_id, round_index)
+    legal_move_usis = [m["usi"] for m in legal_moves]
 
-    ranking_map = {row["move_usi"]: row["votes"] for row in ranking}
+    ranking_rows = get_vote_ranking(game_id, round_index)
+    legal_move_map = {m["usi"]: m["kif"] for m in legal_moves}
     ranking_display = []
-    for item in legal_moves:
+    for row in ranking_rows:
+        move_usi = row["move_usi"]
+        if move_usi not in legal_move_map:
+            continue
         ranking_display.append(
             {
-                "usi": item["usi"],
-                "kif": item["kif"],
-                "votes": ranking_map.get(item["usi"], 0),
+                "usi": move_usi,
+                "kif": legal_move_map[move_usi],
+                "votes": row["votes"],
             }
         )
-    ranking_display.sort(key=lambda x: (-x["votes"], x["usi"]))
 
     voter_token = get_client_token()
     voted = has_voted(game_id, round_index, voter_token)
     cutoff = get_round_deadline(game_id)
-    remaining = cutoff - now_jst()
+    now = now_jst()
+    remaining = cutoff - now
     remaining_seconds = max(int(remaining.total_seconds()), 0)
+    is_rotated = board.turn == shogi.WHITE
 
     resp = make_response(
         render_template(
             "index.html",
             title="超合議制将棋",
             board_grid=board_to_grid(board),
+            board_cells=build_board_cells(board, is_rotated),
+            board_rotated=is_rotated,
             side_to_move=side_to_move_label(board),
             game_over=board.is_game_over(),
             legal_moves=legal_moves,
+            legal_move_usis=legal_move_usis,
             ranking_display=ranking_display,
             voted=voted,
             round_index=round_index + 1,
             remaining_seconds=remaining_seconds,
             cutoff_time=cutoff.strftime("%H:%M"),
+            cutoff_epoch=int(cutoff.timestamp()),
+            server_now_epoch=int(now.timestamp()),
+            top_labels=(
+                ["一", "二", "三", "四", "五", "六", "七", "八", "九"]
+                if not is_rotated
+                else ["九", "八", "七", "六", "五", "四", "三", "二", "一"]
+            ),
+            side_labels=([str(n) for n in range(1, 10)] if not is_rotated else [str(n) for n in range(9, 0, -1)]),
+            black_hand=build_hand_data(board, shogi.BLACK, board.turn == shogi.BLACK),
+            white_hand=build_hand_data(board, shogi.WHITE, board.turn == shogi.WHITE),
+            last_move_text=get_last_move_info(game_id),
         )
     )
     if "voter_token" not in request.cookies:
