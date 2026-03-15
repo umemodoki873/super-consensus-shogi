@@ -28,11 +28,12 @@
       {% endif %}
 
       <div class="board-layout" aria-label="将棋盤">
+        {% macro render_hand_box(title, hand_items, is_active, owner) -%}
         <div class="hand-box">
-          <h3>後手の持ち駒</h3>
-          <div class="hand-pieces{% if board_rotated %} active-hand{% endif %}" data-hand-owner="white">
-            {% if white_hand %}
-              {% for piece in white_hand %}
+          <h3>{{ title }}</h3>
+          <div class="hand-pieces{% if is_active %} active-hand{% endif %}" data-hand-owner="{{ owner }}">
+            {% if hand_items %}
+              {% for piece in hand_items %}
               <button
                 type="button"
                 class="hand-piece {% if piece.interactive and not voted and not game_over %}selectable{% endif %}"
@@ -45,6 +46,13 @@
             {% endif %}
           </div>
         </div>
+        {%- endmacro %}
+
+        {% if board_rotated %}
+          {{ render_hand_box('先手の持ち駒', black_hand, false, 'black') }}
+        {% else %}
+          {{ render_hand_box('後手の持ち駒', white_hand, false, 'white') }}
+        {% endif %}
 
         <div class="board-wrap">
           <table class="board-coord top-coord">
@@ -80,23 +88,11 @@
           </div>
         </div>
 
-        <div class="hand-box">
-          <h3>先手の持ち駒</h3>
-          <div class="hand-pieces{% if not board_rotated %} active-hand{% endif %}" data-hand-owner="black">
-            {% if black_hand %}
-              {% for piece in black_hand %}
-              <button
-                type="button"
-                class="hand-piece {% if piece.interactive and not voted and not game_over %}selectable{% endif %}"
-                data-piece-usi="{{ piece.usi }}"
-                {% if not piece.interactive or voted or game_over %}disabled{% endif %}
-              >{{ piece.name }}{% if piece.count > 1 %}{{ piece.count }}{% endif %}</button>
-              {% endfor %}
-            {% else %}
-              <span class="empty-hand">なし</span>
-            {% endif %}
-          </div>
-        </div>
+        {% if board_rotated %}
+          {{ render_hand_box('後手の持ち駒', white_hand, true, 'white') }}
+        {% else %}
+          {{ render_hand_box('先手の持ち駒', black_hand, true, 'black') }}
+        {% endif %}
       </div>
     </section>
 
