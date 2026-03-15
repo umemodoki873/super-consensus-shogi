@@ -161,7 +161,7 @@ def board_to_grid(board: shogi.Board):
     for rank in range(9):
         row = []
         for file in range(9):
-            square = (8 - file) + rank * 9
+            square = file + rank * 9
             piece = board.piece_at(square)
             row.append(piece.japanese_symbol() if piece else "・")
         grid.append(row)
@@ -173,9 +173,9 @@ def build_board_cells(board: shogi.Board, is_rotated: bool):
     for rank in range(9):
         row = []
         for file in range(9):
-            square = (8 - file) + rank * 9
+            square = file + rank * 9
             piece = board.piece_at(square)
-            usi_square = f"{9 - file}{chr(ord('a') + rank)}"
+            usi_square = shogi.SQUARE_NAMES[square]
             piece_symbol = piece.japanese_symbol() if piece else ""
             row.append(
                 {
@@ -495,9 +495,9 @@ def index():
             cutoff_epoch=int(cutoff.timestamp()),
             server_now_epoch=int(now.timestamp()),
             top_labels=(
-                ["一", "二", "三", "四", "五", "六", "七", "八", "九"]
+                ["九", "八", "七", "六", "五", "四", "三", "二", "一"]
                 if not is_rotated
-                else ["九", "八", "七", "六", "五", "四", "三", "二", "一"]
+                else ["一", "二", "三", "四", "五", "六", "七", "八", "九"]
             ),
             side_labels=([str(n) for n in range(1, 10)] if not is_rotated else [str(n) for n in range(9, 0, -1)]),
             black_hand=build_hand_data(board, shogi.BLACK, board.turn == shogi.BLACK),
