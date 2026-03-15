@@ -19,6 +19,11 @@ h1 {
   font-size: 1.6rem;
 }
 
+h3 {
+  margin: 0 0 8px;
+  font-size: 1rem;
+}
+
 nav {
   display: flex;
   gap: 10px;
@@ -48,13 +53,93 @@ nav a {
   border-radius: 6px;
 }
 
+.last-move {
+  background: #f3f7ff;
+  border: 1px solid #c8d9ff;
+  border-radius: 8px;
+  padding: 8px;
+}
+
+.board-layout {
+  display: grid;
+  grid-template-columns: minmax(120px, 170px) auto minmax(120px, 170px);
+  gap: 12px;
+  align-items: start;
+}
+
+.hand-box {
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  padding: 8px;
+  background: #fafafa;
+}
+
+.hand-pieces {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.hand-piece {
+  border: 1px solid #bbb;
+  border-radius: 6px;
+  background: #fff;
+  color: #333;
+  padding: 6px 8px;
+}
+
+.hand-piece.selectable {
+  cursor: pointer;
+}
+
+.hand-piece.selected-hand {
+  border-color: #2f6feb;
+  box-shadow: inset 0 0 0 2px #2f6feb;
+}
+
+.active-hand {
+  background: #eef5ff;
+  border-radius: 6px;
+  padding: 4px;
+}
+
+.empty-hand {
+  color: #777;
+}
+
 .board-wrap {
   overflow-x: auto;
 }
 
+.top-coord {
+  margin-left: 2px;
+}
+
+.board-main {
+  display: flex;
+  align-items: stretch;
+}
+
+.board-coord {
+  border-collapse: collapse;
+}
+
+.board-coord th {
+  width: 34px;
+  height: 20px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #444;
+}
+
+.side-coord th {
+  width: 20px;
+  height: 34px;
+}
+
 .board {
   border-collapse: collapse;
-  margin-top: 10px;
+  margin-top: 0;
 }
 
 .board td {
@@ -64,6 +149,24 @@ nav a {
   text-align: center;
   background: #f3cd7b;
   font-weight: 700;
+  cursor: pointer;
+}
+
+.piece {
+  display: inline-block;
+  line-height: 1;
+}
+
+.piece-opponent {
+  transform: rotate(180deg);
+}
+
+.board td.selected-from {
+  box-shadow: inset 0 0 0 3px #2f6feb;
+}
+
+.board td.selected-to {
+  box-shadow: inset 0 0 0 3px #2e9f5b;
 }
 
 .board.mini td {
@@ -75,6 +178,10 @@ nav a {
 .vote-form {
   display: grid;
   gap: 8px;
+}
+
+.vote-guide {
+  margin: 6px 0;
 }
 
 select,
@@ -115,10 +222,30 @@ form.inline {
   flex-wrap: wrap;
 }
 
+@media (max-width: 860px) {
+  .board-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .hand-box {
+    order: 2;
+  }
+
+  .board-wrap {
+    order: 1;
+  }
+}
+
 @media (max-width: 600px) {
-  .board td {
+  .board td,
+  .board-coord th {
     width: 30px;
     height: 30px;
     font-size: 0.9rem;
+  }
+
+  .side-coord th {
+    width: 20px;
+    height: 30px;
   }
 }

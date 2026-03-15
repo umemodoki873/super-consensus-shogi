@@ -19,6 +19,7 @@
   <main class="container">
     <section class="card">
       <h2>現在局面（{{ round_index - 1 }}手目まで反映）</h2>
+      <p class="last-move"><strong>直前の確定手：</strong>{{ last_move_text }}</p>
       <p><strong>現在手番：</strong>{{ side_to_move }}</p>
       <p><strong>投票締切：</strong>毎日 {{ cutoff_time }}</p>
       <p><strong>締切まで残り：</strong><span id="countdown"></span></p>
@@ -26,39 +27,94 @@
       <p class="notice">終局しています。管理画面から新しい対局を開始してください。</p>
       {% endif %}
 
-      <div class="board-wrap" aria-label="将棋盤">
-        <table class="board">
-          <tbody>
-          {% for row in board_grid %}
+      <div class="board-layout" aria-label="将棋盤">
+        <div class="hand-box">
+          <h3>後手の持ち駒</h3>
+          <div class="hand-pieces{% if board_rotated %} active-hand{% endif %}" data-hand-owner="white">
+            {% if white_hand %}
+              {% for piece in white_hand %}
+              <button
+                type="button"
+                class="hand-piece {% if piece.interactive and not voted and not game_over %}selectable{% endif %}"
+                data-piece-usi="{{ piece.usi }}"
+                {% if not piece.interactive or voted or game_over %}disabled{% endif %}
+              >{{ piece.name }}{% if piece.count > 1 %}{{ piece.count }}{% endif %}</button>
+              {% endfor %}
+            {% else %}
+              <span class="empty-hand">なし</span>
+            {% endif %}
+          </div>
+        </div>
+
+        <div class="board-wrap">
+          <table class="board-coord top-coord">
             <tr>
-              {% for cell in row %}
-                <td>{{ cell }}</td>
+              {% for label in top_labels %}
+              <th>{{ label }}</th>
               {% endfor %}
             </tr>
-          {% endfor %}
-          </tbody>
-        </table>
+          </table>
+          <div class="board-main">
+            <table class="board">
+              <tbody>
+              {% for row in board_cells %}
+                <tr>
+                  {% for cell in row %}
+                    <td class="board-cell" data-square="{{ cell.usi_square }}">
+                      {% if cell.piece_symbol %}
+                      <span class="piece {{ cell.piece_class }}">{{ cell.piece_symbol }}</span>
+                      {% endif %}
+                    </td>
+                  {% endfor %}
+                </tr>
+              {% endfor %}
+              </tbody>
+            </table>
+            <table class="board-coord side-coord">
+              <tbody>
+                {% for label in side_labels %}
+                <tr><th>{{ label }}</th></tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="hand-box">
+          <h3>先手の持ち駒</h3>
+          <div class="hand-pieces{% if not board_rotated %} active-hand{% endif %}" data-hand-owner="black">
+            {% if black_hand %}
+              {% for piece in black_hand %}
+              <button
+                type="button"
+                class="hand-piece {% if piece.interactive and not voted and not game_over %}selectable{% endif %}"
+                data-piece-usi="{{ piece.usi }}"
+                {% if not piece.interactive or voted or game_over %}disabled{% endif %}
+              >{{ piece.name }}{% if piece.count > 1 %}{{ piece.count }}{% endif %}</button>
+              {% endfor %}
+            {% else %}
+              <span class="empty-hand">なし</span>
+            {% endif %}
+          </div>
+        </div>
       </div>
     </section>
 
     <section class="card">
-      <h2>候補手に投票</h2>
+      <h2>盤面クリックで投票</h2>
       {% if voted %}
         <p class="notice">この端末はこのラウンドで投票済みです（1端末1票）。</p>
       {% endif %}
-      <form method="post" action="{{ url_for('vote') }}" class="vote-form">
-        <label for="move_usi">候補手（合法手のみ）</label>
-        <select id="move_usi" name="move_usi" required {% if voted or game_over %}disabled{% endif %}>
-          {% for move in legal_moves %}
-            <option value="{{ move.usi }}">{{ move.kif }}（{{ move.usi }}）</option>
-          {% endfor %}
-        </select>
-        <button type="submit" {% if voted or game_over %}disabled{% endif %}>この手に投票</button>
+      <p id="vote-guide" class="vote-guide">盤上の駒、または手番側の持ち駒を選び、次に移動先をクリックしてください。</p>
+      <form method="post" action="{{ url_for('vote') }}" id="vote-form">
+        <input type="hidden" name="move_usi" id="move_usi" />
+        <button type="submit" id="vote-submit" disabled>この手に投票</button>
       </form>
     </section>
 
     <section class="card">
-      <h2>現在の投票ランキング</h2>
+      <h2>現在の投票ランキング（投票済みの手のみ）</h2>
+      {% if ranking_display %}
       <ul class="ranking">
         {% for row in ranking_display %}
           <li>
@@ -67,24 +123,147 @@
           </li>
         {% endfor %}
       </ul>
+      {% else %}
+      <p>まだ投票はありません。</p>
+      {% endif %}
     </section>
   </main>
 
   <script>
     (function () {
-      let remain = {{ remaining_seconds }};
-      const el = document.getElementById('countdown');
-      function render() {
+      const countdownEl = document.getElementById('countdown');
+      const serverNowEpoch = {{ server_now_epoch }};
+      const cutoffEpoch = {{ cutoff_epoch }};
+      const clientNowAtLoad = Math.floor(Date.now() / 1000);
+      const serverClientOffset = serverNowEpoch - clientNowAtLoad;
+
+      function remainingSeconds() {
+        const adjustedNow = Math.floor(Date.now() / 1000) + serverClientOffset;
+        return Math.max(cutoffEpoch - adjustedNow, 0);
+      }
+
+      function renderCountdown() {
+        const remain = remainingSeconds();
         const h = Math.floor(remain / 3600);
         const m = Math.floor((remain % 3600) / 60);
         const s = remain % 60;
-        el.textContent = `${h}時間 ${m}分 ${s}秒`;
+        countdownEl.textContent = `${h}時間 ${m}分 ${s}秒`;
       }
-      render();
-      setInterval(() => {
-        remain = Math.max(remain - 1, 0);
-        render();
-      }, 1000);
+
+      renderCountdown();
+      setInterval(renderCountdown, 1000);
+      document.addEventListener('visibilitychange', renderCountdown);
+      window.addEventListener('focus', renderCountdown);
+
+      const voted = {{ 'true' if voted else 'false' }};
+      const gameOver = {{ 'true' if game_over else 'false' }};
+      if (voted || gameOver) {
+        return;
+      }
+
+      const legalMoves = new Set({{ legal_move_usis|tojson }});
+      const guideEl = document.getElementById('vote-guide');
+      const moveInput = document.getElementById('move_usi');
+      const submitBtn = document.getElementById('vote-submit');
+      const voteForm = document.getElementById('vote-form');
+      const boardCells = Array.from(document.querySelectorAll('.board-cell'));
+      const handButtons = Array.from(document.querySelectorAll('.hand-piece.selectable'));
+
+      let fromSquare = null;
+      let selectedDropPiece = null;
+
+      function clearBoardSelection() {
+        boardCells.forEach((cell) => cell.classList.remove('selected-from', 'selected-to'));
+        handButtons.forEach((btn) => btn.classList.remove('selected-hand'));
+      }
+
+      function setGuide(message) {
+        guideEl.textContent = message;
+      }
+
+      function pickMove(from, to) {
+        const plain = `${from}${to}`;
+        const promote = `${from}${to}+`;
+        const canPlain = legalMoves.has(plain);
+        const canPromote = legalMoves.has(promote);
+
+        if (!canPlain && !canPromote) {
+          return null;
+        }
+        if (canPlain && canPromote) {
+          return window.confirm('成りますか？') ? promote : plain;
+        }
+        return canPromote ? promote : plain;
+      }
+
+      function enableSubmit(moveUsi, message) {
+        moveInput.value = moveUsi;
+        submitBtn.disabled = false;
+        setGuide(message);
+      }
+
+      boardCells.forEach((cell) => {
+        cell.addEventListener('click', () => {
+          const square = cell.dataset.square;
+
+          if (selectedDropPiece) {
+            const dropMove = `${selectedDropPiece}*${square}`;
+            if (!legalMoves.has(dropMove)) {
+              setGuide('その打ち手は合法手ではありません。別のマスを選んでください。');
+              return;
+            }
+            clearBoardSelection();
+            cell.classList.add('selected-to');
+            enableSubmit(dropMove, `選択中: ${dropMove}（投票ボタンで確定）`);
+            return;
+          }
+
+          if (!fromSquare) {
+            fromSquare = square;
+            clearBoardSelection();
+            cell.classList.add('selected-from');
+            setGuide('移動先のマスをクリックしてください。');
+            submitBtn.disabled = true;
+            moveInput.value = '';
+            return;
+          }
+
+          const move = pickMove(fromSquare, square);
+          if (!move) {
+            fromSquare = square;
+            clearBoardSelection();
+            cell.classList.add('selected-from');
+            setGuide('その移動は合法手ではありません。移動先を選び直してください。');
+            submitBtn.disabled = true;
+            moveInput.value = '';
+            return;
+          }
+
+          clearBoardSelection();
+          const fromCell = document.querySelector(`.board-cell[data-square="${fromSquare}"]`);
+          if (fromCell) fromCell.classList.add('selected-from');
+          cell.classList.add('selected-to');
+          enableSubmit(move, `選択中: ${move}（投票ボタンで確定）`);
+        });
+      });
+
+      handButtons.forEach((button) => {
+        button.addEventListener('click', () => {
+          selectedDropPiece = button.dataset.pieceUsi;
+          fromSquare = null;
+          clearBoardSelection();
+          button.classList.add('selected-hand');
+          submitBtn.disabled = true;
+          moveInput.value = '';
+          setGuide(`「${button.textContent.trim()}」を打つ場所を盤上で選んでください。`);
+        });
+      });
+
+      voteForm.addEventListener('submit', (event) => {
+        if (!moveInput.value) {
+          event.preventDefault();
+        }
+      });
     })();
   </script>
 </body>
