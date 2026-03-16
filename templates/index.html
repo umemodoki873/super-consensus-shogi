@@ -12,7 +12,6 @@
     <nav>
       <a href="{{ url_for('index') }}">トップ</a>
       <a href="{{ url_for('history') }}">履歴</a>
-      <a href="{{ url_for('admin') }}">管理</a>
     </nav>
   </header>
 
@@ -31,7 +30,7 @@
       <p><strong>投票締切：</strong>毎日 {{ cutoff_time }}</p>
       <p><strong>締切まで残り：</strong><span id="countdown"></span></p>
       {% if game_over %}
-      <p class="notice">終局しています。管理画面から新しい対局を開始してください。</p>
+      <p class="notice">終局しています。次の対局開始をお待ちください。</p>
       {% endif %}
 
       <div class="board-layout" aria-label="将棋盤">

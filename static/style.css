@@ -224,6 +224,37 @@ button:disabled {
   padding: 6px 0;
 }
 
+.adopted-move {
+  font-weight: 700;
+  background: #eef7ff;
+}
+
+.history-nav {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.history-nav form {
+  margin: 0;
+}
+
+.history-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.history-table th,
+.history-table td {
+  border-bottom: 1px solid #eaeaea;
+  text-align: left;
+  padding: 8px;
+}
+
+.history-board td {
+  cursor: default;
+}
+
 form.inline {
   display: flex;
   align-items: center;
