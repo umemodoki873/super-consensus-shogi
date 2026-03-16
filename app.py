@@ -354,12 +354,12 @@ def move_piece_name(move: shogi.Move, board: shogi.Board) -> str:
         shogi.BISHOP: "角",
         shogi.ROOK: "飛",
         shogi.KING: "玉",
-        shogi.PRO_PAWN: "と",
-        shogi.PRO_LANCE: "成香",
-        shogi.PRO_KNIGHT: "成桂",
-        shogi.PRO_SILVER: "成銀",
-        shogi.HORSE: "馬",
-        shogi.DRAGON: "龍",
+        shogi.PROM_PAWN: "と",
+        shogi.PROM_LANCE: "成香",
+        shogi.PROM_KNIGHT: "成桂",
+        shogi.PROM_SILVER: "成銀",
+        shogi.PROM_BISHOP: "馬",
+        shogi.PROM_ROOK: "龍",
     }
     if move.drop_piece_type is not None:
         return piece_names.get(move.drop_piece_type, "駒")
