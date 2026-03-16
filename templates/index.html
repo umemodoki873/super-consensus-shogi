@@ -15,124 +15,155 @@
     </nav>
   </header>
 
-  <main class="container">
-    <section class="card">
-      <h2>
-        現在局面（
-        {% if last_move_text == "開始局面" %}
-          {{ last_move_text }}
-        {% else %}
-          {{ last_move_text }}反映
-        {% endif %}
-        ）
-      </h2>
-      <p><strong>現在手番：</strong>{{ side_to_move }}</p>
-      <p><strong>表示方向：</strong>{% if board_rotated %}後手視点{% else %}先手視点{% endif %}（{% if manual_flip %}手動反転ON{% else %}手動反転OFF{% endif %}）</p>
-      <p><strong>投票締切：</strong>毎日 {{ cutoff_time }}</p>
-      <p><strong>締切まで残り：</strong><span id="countdown"></span></p>
-      <div class="view-controls">
-        <a class="toggle-link" href="{{ url_for('index', flip=0 if manual_flip else 1) }}">盤面反転（{% if manual_flip %}ON{% else %}OFF{% endif %}）</a>
-      </div>
-      {% if game_over %}
-      <p class="notice">終局しています。次の対局開始をお待ちください。</p>
-      {% endif %}
+  <main class="container top-layout">
+    <section class="left-column">
+      <section class="card board-card">
+        <h2 class="board-title">現在局面</h2>
 
-      <div class="board-layout" aria-label="将棋盤">
-        {% macro render_hand_box(title, hand_items, is_active, owner) -%}
-        <div class="hand-box">
-          <h3>{{ title }}</h3>
-          <div class="hand-pieces{% if is_active %} active-hand{% endif %}" data-hand-owner="{{ owner }}">
-            {% if hand_items %}
-              {% for piece in hand_items %}
-              <button
-                type="button"
-                class="hand-piece {% if piece.interactive and not voted and not game_over %}selectable{% endif %}"
-                data-piece-usi="{{ piece.usi }}"
-                {% if not piece.interactive or voted or game_over %}disabled{% endif %}
-              >{{ piece.name }}{% if piece.count > 1 %}{{ piece.count }}{% endif %}</button>
-              {% endfor %}
-            {% else %}
-              <span class="empty-hand">なし</span>
-            {% endif %}
-          </div>
-        </div>
-        {%- endmacro %}
-
-        {% if board_rotated %}
-          {{ render_hand_box('先手の持ち駒', black_hand, false, 'black') }}
-        {% else %}
-          {{ render_hand_box('後手の持ち駒', white_hand, false, 'white') }}
-        {% endif %}
-
-        <div class="board-wrap">
-          <table class="board-coord top-coord">
-            <tr>
-              {% for label in top_labels %}
-              <th>{{ label }}</th>
-              {% endfor %}
-            </tr>
-          </table>
-          <div class="board-main">
-            <table class="board">
-              <tbody>
-              {% for row in board_cells %}
-                <tr>
-                  {% for cell in row %}
-                    <td class="board-cell" data-square="{{ cell.usi_square }}">
-                      {% if cell.piece_symbol %}
-                      <span class="piece {{ cell.piece_class }}">{{ cell.piece_symbol }}</span>
-                      {% endif %}
-                    </td>
-                  {% endfor %}
-                </tr>
-              {% endfor %}
-              </tbody>
-            </table>
-            <table class="board-coord side-coord">
-              <tbody>
-                {% for label in side_labels %}
-                <tr><th>{{ label }}</th></tr>
+        <div class="board-layout" aria-label="将棋盤">
+          {% macro render_hand_box(title, hand_items, is_active, owner) -%}
+          <div class="hand-box">
+            <h3>{{ title }}</h3>
+            <div class="hand-pieces{% if is_active %} active-hand{% endif %}" data-hand-owner="{{ owner }}">
+              {% if hand_items %}
+                {% for piece in hand_items %}
+                <button
+                  type="button"
+                  class="hand-piece {% if piece.interactive and not voted and not game_over %}selectable{% endif %}"
+                  data-piece-usi="{{ piece.usi }}"
+                  {% if not piece.interactive or voted or game_over %}disabled{% endif %}
+                >{{ piece.name }}{% if piece.count > 1 %}{{ piece.count }}{% endif %}</button>
                 {% endfor %}
-              </tbody>
-            </table>
+              {% else %}
+                <span class="empty-hand">なし</span>
+              {% endif %}
+            </div>
           </div>
+          {%- endmacro %}
+
+          {% if board_rotated %}
+            {{ render_hand_box('先手の持ち駒', black_hand, false, 'black') }}
+          {% else %}
+            {{ render_hand_box('後手の持ち駒', white_hand, false, 'white') }}
+          {% endif %}
+
+          <div class="board-wrap">
+            <table class="board-coord top-coord">
+              <tr>
+                {% for label in top_labels %}
+                <th>{{ label }}</th>
+                {% endfor %}
+              </tr>
+            </table>
+            <div class="board-main">
+              <table class="board">
+                <tbody>
+                {% for row in board_cells %}
+                  <tr>
+                    {% for cell in row %}
+                      <td class="board-cell" data-square="{{ cell.usi_square }}">
+                        {% if cell.piece_symbol %}
+                        <span class="piece {{ cell.piece_class }}">{{ cell.piece_symbol }}</span>
+                        {% endif %}
+                      </td>
+                    {% endfor %}
+                  </tr>
+                {% endfor %}
+                </tbody>
+              </table>
+              <table class="board-coord side-coord">
+                <tbody>
+                  {% for label in side_labels %}
+                  <tr><th>{{ label }}</th></tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {% if board_rotated %}
+            {{ render_hand_box('後手の持ち駒', white_hand, true, 'white') }}
+          {% else %}
+            {{ render_hand_box('先手の持ち駒', black_hand, true, 'black') }}
+          {% endif %}
         </div>
+      </section>
 
-        {% if board_rotated %}
-          {{ render_hand_box('後手の持ち駒', white_hand, true, 'white') }}
-        {% else %}
-          {{ render_hand_box('先手の持ち駒', black_hand, true, 'black') }}
+      <section class="card vote-card">
+        <h2>盤面クリックで投票</h2>
+        {% if voted %}
+          <p class="notice">この端末はこのラウンドで投票済みです（1端末1票）。</p>
         {% endif %}
-      </div>
+        <p id="vote-guide" class="vote-guide">盤上の駒、または手番側の持ち駒を選び、次に移動先をクリックしてください。</p>
+        <form method="post" action="{{ url_for('vote', flip=1) if manual_flip else url_for('vote') }}" id="vote-form" class="vote-form">
+          <input type="hidden" name="move_usi" id="move_usi" />
+          <button type="submit" id="vote-submit" disabled>この手に投票</button>
+        </form>
+      </section>
     </section>
 
-    <section class="card">
-      <h2>盤面クリックで投票</h2>
-      {% if voted %}
-        <p class="notice">この端末はこのラウンドで投票済みです（1端末1票）。</p>
-      {% endif %}
-      <p id="vote-guide" class="vote-guide">盤上の駒、または手番側の持ち駒を選び、次に移動先をクリックしてください。</p>
-      <form method="post" action="{{ url_for('vote', flip=1) if manual_flip else url_for('vote') }}" id="vote-form">
-        <input type="hidden" name="move_usi" id="move_usi" />
-        <button type="submit" id="vote-submit" disabled>この手に投票</button>
-      </form>
-    </section>
+    <aside class="right-column">
+      <section class="card info-card">
+        <h2>対局情報</h2>
+        <p class="last-move"><strong>最終手：</strong>
+          {% if last_move_text == "開始局面" %}
+            {{ last_move_text }}
+          {% else %}
+            {{ last_move_text }}反映
+          {% endif %}
+        </p>
+        <div class="status-grid">
+          <p><strong>現在手番：</strong>{{ side_to_move }}</p>
+          <p><strong>残り時間：</strong><span id="countdown"></span></p>
+          <p><strong>投票締切：</strong>毎日 {{ cutoff_time }}</p>
+          <p><strong>表示方向：</strong>{% if board_rotated %}後手視点{% else %}先手視点{% endif %}</p>
+        </div>
+        <div class="view-controls">
+          <a class="toggle-link" href="{{ url_for('index', flip=0 if manual_flip else 1) }}">盤面反転（{% if manual_flip %}ON{% else %}OFF{% endif %}）</a>
+        </div>
+        {% if game_over %}
+        <p class="notice">終局しています。次の対局開始をお待ちください。</p>
+        {% endif %}
+      </section>
 
-    <section class="card">
-      <h2>現在の投票ランキング（投票済みの手のみ）</h2>
-      {% if ranking_display %}
-      <ul class="ranking">
-        {% for row in ranking_display %}
-          <li>
-            <span>{{ row.ki2 }}</span>
-            <span>{{ row.votes }}票</span>
-          </li>
-        {% endfor %}
-      </ul>
-      {% else %}
-      <p>まだ投票はありません。</p>
-      {% endif %}
-    </section>
+      <section class="card">
+        <h2>現在の投票ランキング（投票済みの手のみ）</h2>
+        {% set preview_limit = 5 %}
+        {% if ranking_display %}
+        <ul class="ranking">
+          {% for row in ranking_display[:preview_limit] %}
+            <li>
+              <span>{{ row.ki2 }}</span>
+              <span>{{ row.votes }}票</span>
+            </li>
+          {% endfor %}
+        </ul>
+        {% if ranking_display|length > preview_limit %}
+        <details class="compact-details">
+          <summary>もっと見る（残り {{ ranking_display|length - preview_limit }}件）</summary>
+          <ul class="ranking ranking-more">
+            {% for row in ranking_display[preview_limit:] %}
+              <li>
+                <span>{{ row.ki2 }}</span>
+                <span>{{ row.votes }}票</span>
+              </li>
+            {% endfor %}
+          </ul>
+        </details>
+        {% endif %}
+        {% else %}
+        <p>まだ投票はありません。</p>
+        {% endif %}
+      </section>
+
+      <section class="card compact-card">
+        <details class="compact-details">
+          <summary>投票の補足説明</summary>
+          <p>盤上の駒か手番側の持ち駒を選択し、次に移動先をクリックしてください。成/不成の両方がある場合は確認ダイアログが表示されます。</p>
+          <p>ランキングには実際に投票された手のみ表示されます。</p>
+        </details>
+      </section>
+    </aside>
   </main>
 
   <script>
