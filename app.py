@@ -627,21 +627,96 @@ def vote():
 
 @app.route("/history")
 def history():
-    game_id = get_active_game_id()
     db = get_db()
-    moves = []
-    boards = []
-    if game_id is not None:
-        moves = db.execute(
-            "SELECT ply, usi, kif, voted_count, decided_at FROM moves WHERE game_id = ? ORDER BY ply ASC",
-            (game_id,),
-        ).fetchall()
-        # 各局面を簡易に閲覧できるように、手数ごとの盤面を準備
-        for row in moves:
-            ply = int(row["ply"])
-            boards.append({"ply": ply, "grid": board_to_grid(build_board(game_id, upto_ply=ply))})
+    games = db.execute(
+        """
+        SELECT g.id, g.created_at, g.finished_at, g.status, COUNT(m.id) AS total_moves
+        FROM games g
+        LEFT JOIN moves m ON m.game_id = g.id
+        GROUP BY g.id, g.created_at, g.finished_at, g.status
+        ORDER BY g.id DESC
+        """
+    ).fetchall()
+    return render_template("history.html", title="履歴一覧", games=games)
 
-    return render_template("history.html", title="履歴", moves=moves, boards=boards)
+
+@app.route("/history/<int:game_id>")
+def history_game(game_id: int):
+    db = get_db()
+    game = db.execute(
+        "SELECT id, status, created_at, finished_at FROM games WHERE id = ?",
+        (game_id,),
+    ).fetchone()
+    if game is None:
+        return redirect(url_for("history"))
+
+    total_moves_row = db.execute("SELECT COUNT(*) AS c FROM moves WHERE game_id = ?", (game_id,)).fetchone()
+    total_moves = int(total_moves_row["c"])
+
+    # n手目終了時点の局面を表示し、その局面に対する次の1手の投票ランキングを表示する
+    ply = request.args.get("ply", "0")
+    try:
+        selected_ply = max(0, min(total_moves, int(ply)))
+    except ValueError:
+        selected_ply = 0
+
+    board = build_board(game_id, upto_ply=selected_ply)
+    is_rotated = board.turn == shogi.WHITE
+
+    votes_rows = db.execute(
+        """
+        SELECT move_usi, COUNT(*) AS votes
+        FROM votes
+        WHERE game_id = ? AND round_index = ?
+        GROUP BY move_usi
+        ORDER BY votes DESC, move_usi ASC
+        """,
+        (game_id, selected_ply),
+    ).fetchall()
+
+    previous_row = db.execute(
+        "SELECT usi FROM moves WHERE game_id = ? AND ply = ?",
+        (game_id, selected_ply),
+    ).fetchone()
+    previous_usi = previous_row["usi"] if previous_row is not None else None
+
+    ranking_display = []
+    for row in votes_rows:
+        move_usi = str(row["move_usi"])
+        ki2 = usi_move_to_ki2(move_usi, board, previous_usi)
+        ranking_display.append(
+            {
+                "usi": move_usi,
+                "ki2": ki2,
+                "votes": int(row["votes"]),
+            }
+        )
+
+    adopted_row = db.execute(
+        "SELECT usi FROM moves WHERE game_id = ? AND ply = ?",
+        (game_id, selected_ply + 1),
+    ).fetchone()
+    adopted_usi = adopted_row["usi"] if adopted_row is not None else None
+
+    return render_template(
+        "history_game.html",
+        title=f"履歴詳細: 対局 {game_id}",
+        game=game,
+        total_moves=total_moves,
+        selected_ply=selected_ply,
+        board_cells=build_board_cells(board, is_rotated),
+        board_rotated=is_rotated,
+        top_labels=(
+            ["九", "八", "七", "六", "五", "四", "三", "二", "一"]
+            if not is_rotated
+            else ["一", "二", "三", "四", "五", "六", "七", "八", "九"]
+        ),
+        side_labels=([str(n) for n in range(1, 10)] if not is_rotated else [str(n) for n in range(9, 0, -1)]),
+        black_hand=build_hand_data(board, shogi.BLACK, False),
+        white_hand=build_hand_data(board, shogi.WHITE, False),
+        ranking_display=ranking_display,
+        adopted_usi=adopted_usi,
+    )
 
 
 @app.route("/admin", methods=["GET", "POST"])

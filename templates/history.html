@@ -8,46 +8,48 @@
 </head>
 <body>
   <header class="container">
-    <h1>履歴</h1>
+    <h1>履歴一覧</h1>
     <nav>
       <a href="{{ url_for('index') }}">トップ</a>
       <a href="{{ url_for('history') }}">履歴</a>
-      <a href="{{ url_for('admin') }}">管理</a>
     </nav>
   </header>
 
   <main class="container">
     <section class="card">
-      <h2>これまでの指し手</h2>
-      {% if moves %}
-        <ol>
-          {% for m in moves %}
-            <li>{{ m['ply'] }}手目: {{ m['kif'] }}（{{ m['voted_count'] }}票）</li>
+      <h2>対局を選択</h2>
+      {% if games %}
+      <table class="history-table">
+        <thead>
+          <tr>
+            <th>対局ID</th>
+            <th>開始日時</th>
+            <th>終了日時 / 総手数</th>
+            <th>状態</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for game in games %}
+          <tr>
+            <td>{{ game.id }}</td>
+            <td>{{ game.created_at }}</td>
+            <td>
+              {% if game.finished_at %}
+                {{ game.finished_at }} / {{ game.total_moves }}手
+              {% else %}
+                未終了 / {{ game.total_moves }}手
+              {% endif %}
+            </td>
+            <td>{{ '進行中' if game.status == 'active' else '終了' }}</td>
+            <td><a href="{{ url_for('history_game', game_id=game.id) }}">詳細を見る</a></td>
+          </tr>
           {% endfor %}
-        </ol>
+        </tbody>
+      </table>
       {% else %}
-        <p>まだ指し手はありません。</p>
+      <p>対局履歴がありません。</p>
       {% endif %}
-    </section>
-
-    <section class="card">
-      <h2>各時点の局面</h2>
-      {% for b in boards %}
-        <h3>{{ b.ply }}手目後</h3>
-        <div class="board-wrap">
-          <table class="board mini">
-            <tbody>
-            {% for row in b.grid %}
-              <tr>
-                {% for cell in row %}
-                  <td>{{ cell }}</td>
-                {% endfor %}
-              </tr>
-            {% endfor %}
-            </tbody>
-          </table>
-        </div>
-      {% endfor %}
     </section>
   </main>
 </body>
