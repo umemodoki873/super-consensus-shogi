@@ -211,12 +211,13 @@ def get_round_index(game_id: int) -> int:
     return int(row["c"])
 
 
-def list_legal_moves(board: shogi.Board):
+def list_legal_moves(board: shogi.Board, previous_usi: Optional[str] = None):
     options = []
     for move in board.legal_moves:
         usi = move.usi()
         kif = move_to_kif(move, board)
-        options.append({"usi": usi, "kif": kif})
+        ki2 = usi_move_to_ki2(usi, board, previous_usi)
+        options.append({"usi": usi, "kif": kif, "ki2": ki2})
     return options
 
 
@@ -298,6 +299,17 @@ def get_last_move_info(game_id: int) -> str:
     previous_usi = previous_row["usi"] if previous_row is not None else None
     board_before = build_board(game_id, upto_ply=ply - 1)
     return f"{ply}手目 {mark}{usi_move_to_ki2(row['usi'], board_before, previous_usi)}まで"
+
+
+def get_previous_move_usi(game_id: int) -> Optional[str]:
+    db = get_db()
+    row = db.execute(
+        "SELECT usi FROM moves WHERE game_id = ? ORDER BY ply DESC LIMIT 1",
+        (game_id,),
+    ).fetchone()
+    if row is None:
+        return None
+    return str(row["usi"])
 
 
 def usi_move_to_ki2(move_usi: str, board_before: shogi.Board, previous_usi: Optional[str] = None) -> str:
@@ -526,11 +538,12 @@ def index():
 
     board = build_board(game_id)
     round_index = get_round_index(game_id)
-    legal_moves = [] if board.is_game_over() else list_legal_moves(board)
+    previous_usi = get_previous_move_usi(game_id)
+    legal_moves = [] if board.is_game_over() else list_legal_moves(board, previous_usi)
     legal_move_usis = [m["usi"] for m in legal_moves]
 
     ranking_rows = get_vote_ranking(game_id, round_index)
-    legal_move_map = {m["usi"]: m["kif"] for m in legal_moves}
+    legal_move_map = {m["usi"]: m["ki2"] for m in legal_moves}
     ranking_display = []
     for row in ranking_rows:
         move_usi = row["move_usi"]
@@ -539,7 +552,7 @@ def index():
         ranking_display.append(
             {
                 "usi": move_usi,
-                "kif": legal_move_map[move_usi],
+                "ki2": legal_move_map[move_usi],
                 "votes": row["votes"],
             }
         )
