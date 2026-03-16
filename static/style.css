@@ -53,11 +53,20 @@ nav a {
   border-radius: 6px;
 }
 
+
+.latest-move-card {
+  border: 2px solid #6ea8ff;
+  background: linear-gradient(135deg, #f3f8ff, #e8f1ff);
+}
+
 .last-move {
   background: #f3f7ff;
   border: 1px solid #c8d9ff;
   border-radius: 8px;
-  padding: 8px;
+  padding: 10px 12px;
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 600;
 }
 
 .board-layout {

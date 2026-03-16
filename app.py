@@ -283,7 +283,7 @@ def build_hand_data(board: shogi.Board, color: int, interactive: bool):
 def get_last_move_info(game_id: int) -> str:
     db = get_db()
     row = db.execute(
-        "SELECT ply, kif FROM moves WHERE game_id = ? ORDER BY ply DESC LIMIT 1",
+        "SELECT ply, usi FROM moves WHERE game_id = ? ORDER BY ply DESC LIMIT 1",
         (game_id,),
     ).fetchone()
     if row is None:
@@ -291,7 +291,83 @@ def get_last_move_info(game_id: int) -> str:
 
     ply = int(row["ply"])
     mark = "▲" if ply % 2 == 1 else "△"
-    return f"{ply}手目 {mark}{row['kif']}まで"
+    previous_row = db.execute(
+        "SELECT usi FROM moves WHERE game_id = ? AND ply = ?",
+        (game_id, ply - 1),
+    ).fetchone()
+    previous_usi = previous_row["usi"] if previous_row is not None else None
+    board_before = build_board(game_id, upto_ply=ply - 1)
+    return f"{ply}手目 {mark}{usi_move_to_ki2(row['usi'], board_before, previous_usi)}まで"
+
+
+def usi_move_to_ki2(move_usi: str, board_before: shogi.Board, previous_usi: Optional[str] = None) -> str:
+    move = shogi.Move.from_usi(move_usi)
+    destination = move_destination_ki2(move, previous_usi)
+    piece_name = move_piece_name(move, board_before)
+    suffix = ""
+    if move.drop_piece_type is not None:
+        suffix = "打"
+    elif move.promotion:
+        suffix = "成"
+    return f"{destination}{piece_name}{suffix}"
+
+
+def move_destination_ki2(move: shogi.Move, previous_usi: Optional[str]) -> str:
+    if previous_usi:
+        prev = shogi.Move.from_usi(previous_usi)
+        if prev.to_square == move.to_square:
+            return "同"
+
+    square = shogi.SQUARE_NAMES[move.to_square]
+    file_zenkaku = {
+        "1": "１",
+        "2": "２",
+        "3": "３",
+        "4": "４",
+        "5": "５",
+        "6": "６",
+        "7": "７",
+        "8": "８",
+        "9": "９",
+    }
+    rank_kanji = {
+        "a": "一",
+        "b": "二",
+        "c": "三",
+        "d": "四",
+        "e": "五",
+        "f": "六",
+        "g": "七",
+        "h": "八",
+        "i": "九",
+    }
+    return f"{file_zenkaku[square[0]]}{rank_kanji[square[1]]}"
+
+
+def move_piece_name(move: shogi.Move, board: shogi.Board) -> str:
+    piece_names = {
+        shogi.PAWN: "歩",
+        shogi.LANCE: "香",
+        shogi.KNIGHT: "桂",
+        shogi.SILVER: "銀",
+        shogi.GOLD: "金",
+        shogi.BISHOP: "角",
+        shogi.ROOK: "飛",
+        shogi.KING: "玉",
+        shogi.PRO_PAWN: "と",
+        shogi.PRO_LANCE: "成香",
+        shogi.PRO_KNIGHT: "成桂",
+        shogi.PRO_SILVER: "成銀",
+        shogi.HORSE: "馬",
+        shogi.DRAGON: "龍",
+    }
+    if move.drop_piece_type is not None:
+        return piece_names.get(move.drop_piece_type, "駒")
+
+    piece = board.piece_at(move.from_square) if move.from_square is not None else None
+    if piece is None:
+        return "駒"
+    return piece_names.get(piece.piece_type, "駒")
 
 
 def get_cutoff_datetime(now: datetime) -> datetime:
