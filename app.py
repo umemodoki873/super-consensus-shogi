@@ -205,6 +205,10 @@ def side_to_move_label(board: shogi.Board) -> str:
     return "先手" if board.turn == shogi.BLACK else "後手"
 
 
+def query_flag(name: str) -> bool:
+    return request.args.get(name, "0") == "1"
+
+
 def get_round_index(game_id: int) -> int:
     db = get_db()
     row = db.execute("SELECT COUNT(*) AS c FROM moves WHERE game_id = ?", (game_id,)).fetchone()
@@ -563,7 +567,9 @@ def index():
     now = now_jst()
     remaining = cutoff - now
     remaining_seconds = max(int(remaining.total_seconds()), 0)
-    is_rotated = board.turn == shogi.WHITE
+    manual_flip = query_flag("flip")
+    auto_rotated = board.turn == shogi.WHITE
+    is_rotated = auto_rotated ^ manual_flip
 
     resp = make_response(
         render_template(
@@ -572,6 +578,8 @@ def index():
             board_grid=board_to_grid(board),
             board_cells=build_board_cells(board, is_rotated),
             board_rotated=is_rotated,
+            auto_rotated=auto_rotated,
+            manual_flip=manual_flip,
             side_to_move=side_to_move_label(board),
             game_over=board.is_game_over(),
             legal_moves=legal_moves,
@@ -619,7 +627,8 @@ def vote():
     ip = request.headers.get("X-Forwarded-For", request.remote_addr or "")
     register_vote(game_id, round_index, move_usi, token, ip)
 
-    resp = make_response(redirect(url_for("index")))
+    redirect_kwargs = {"flip": "1"} if query_flag("flip") else {}
+    resp = make_response(redirect(url_for("index", **redirect_kwargs)))
     if "voter_token" not in request.cookies:
         resp.set_cookie("voter_token", token, max_age=60 * 60 * 24 * 365)
     return resp
@@ -661,7 +670,8 @@ def history_game(game_id: int):
         selected_ply = 0
 
     board = build_board(game_id, upto_ply=selected_ply)
-    is_rotated = board.turn == shogi.WHITE
+    manual_flip = query_flag("flip")
+    is_rotated = manual_flip
 
     votes_rows = db.execute(
         """
@@ -704,6 +714,7 @@ def history_game(game_id: int):
         game=game,
         total_moves=total_moves,
         selected_ply=selected_ply,
+        manual_flip=manual_flip,
         board_cells=build_board_cells(board, is_rotated),
         board_rotated=is_rotated,
         top_labels=(

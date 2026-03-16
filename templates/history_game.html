@@ -19,22 +19,30 @@
     <section class="card">
       <p><strong>開始:</strong> {{ game.created_at }} / <strong>終了:</strong> {{ game.finished_at or '進行中' }} / <strong>状態:</strong> {{ '進行中' if game.status == 'active' else '終了' }}</p>
       <p>表示中: <strong>{{ selected_ply }}手目終了時点</strong>（全{{ total_moves }}手）</p>
+      <p><strong>表示方向：</strong>{% if board_rotated %}後手視点{% else %}先手視点{% endif %}（手動反転{% if manual_flip %}ON{% else %}OFF{% endif %}）</p>
       <p>ランキング定義: 「{{ selected_ply }}手目終了時点の局面に対して投票された、次の1手（{{ selected_ply + 1 }}手目）候補」を表示します。</p>
+      <div class="view-controls">
+        <a class="toggle-link" href="{{ url_for('history_game', game_id=game.id, ply=selected_ply, flip=0 if manual_flip else 1) }}">盤面反転（{% if manual_flip %}ON{% else %}OFF{% endif %}）</a>
+      </div>
       <div class="history-nav">
         <form method="get">
           <input type="hidden" name="ply" value="0" />
+          <input type="hidden" name="flip" value="{{ 1 if manual_flip else 0 }}" />
           <button type="submit" {% if selected_ply == 0 %}disabled{% endif %}>⏮ 最初</button>
         </form>
         <form method="get">
           <input type="hidden" name="ply" value="{{ selected_ply - 1 }}" />
+          <input type="hidden" name="flip" value="{{ 1 if manual_flip else 0 }}" />
           <button type="submit" {% if selected_ply == 0 %}disabled{% endif %}>◀ 前へ</button>
         </form>
         <form method="get">
           <input type="hidden" name="ply" value="{{ selected_ply + 1 }}" />
+          <input type="hidden" name="flip" value="{{ 1 if manual_flip else 0 }}" />
           <button type="submit" {% if selected_ply >= total_moves %}disabled{% endif %}>▶ 次へ</button>
         </form>
         <form method="get">
           <input type="hidden" name="ply" value="{{ total_moves }}" />
+          <input type="hidden" name="flip" value="{{ 1 if manual_flip else 0 }}" />
           <button type="submit" {% if selected_ply >= total_moves %}disabled{% endif %}>最後 ⏭</button>
         </form>
       </div>
