@@ -229,6 +229,20 @@ button:disabled {
   background: #eef7ff;
 }
 
+
+.view-controls {
+  margin: 8px 0 10px;
+}
+
+.toggle-link {
+  display: inline-block;
+  text-decoration: none;
+  background: #1f7a36;
+  color: #fff;
+  padding: 8px 10px;
+  border-radius: 6px;
+}
+
 .history-nav {
   display: flex;
   gap: 8px;

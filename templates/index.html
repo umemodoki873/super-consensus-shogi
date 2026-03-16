@@ -27,8 +27,12 @@
         ）
       </h2>
       <p><strong>現在手番：</strong>{{ side_to_move }}</p>
+      <p><strong>表示方向：</strong>{% if board_rotated %}後手視点{% else %}先手視点{% endif %}（{% if manual_flip %}手動反転ON{% else %}手動反転OFF{% endif %}）</p>
       <p><strong>投票締切：</strong>毎日 {{ cutoff_time }}</p>
       <p><strong>締切まで残り：</strong><span id="countdown"></span></p>
+      <div class="view-controls">
+        <a class="toggle-link" href="{{ url_for('index', flip=0 if manual_flip else 1) }}">盤面反転（{% if manual_flip %}ON{% else %}OFF{% endif %}）</a>
+      </div>
       {% if game_over %}
       <p class="notice">終局しています。次の対局開始をお待ちください。</p>
       {% endif %}
@@ -108,7 +112,7 @@
         <p class="notice">この端末はこのラウンドで投票済みです（1端末1票）。</p>
       {% endif %}
       <p id="vote-guide" class="vote-guide">盤上の駒、または手番側の持ち駒を選び、次に移動先をクリックしてください。</p>
-      <form method="post" action="{{ url_for('vote') }}" id="vote-form">
+      <form method="post" action="{{ url_for('vote', flip=1) if manual_flip else url_for('vote') }}" id="vote-form">
         <input type="hidden" name="move_usi" id="move_usi" />
         <button type="submit" id="vote-submit" disabled>この手に投票</button>
       </form>
