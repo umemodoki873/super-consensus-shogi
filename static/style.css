@@ -6,12 +6,12 @@ body {
 }
 
 .container {
-  width: min(980px, 94%);
+  width: min(1200px, 94%);
   margin: 0 auto;
 }
 
 header {
-  padding: 16px 0;
+  padding: 12px 0 10px;
 }
 
 h1 {
@@ -19,9 +19,14 @@ h1 {
   font-size: 1.6rem;
 }
 
-h3 {
+h2 {
   margin: 0 0 8px;
-  font-size: 1rem;
+  font-size: 1.15rem;
+}
+
+h3 {
+  margin: 0 0 6px;
+  font-size: 0.95rem;
 }
 
 nav {
@@ -38,12 +43,29 @@ nav a {
   color: #333;
 }
 
+.top-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 10px;
+  align-items: start;
+}
+
+.left-column,
+.right-column {
+  display: grid;
+  gap: 10px;
+}
+
 .card {
   background: #fff;
   border-radius: 10px;
-  padding: 14px;
-  margin-bottom: 12px;
+  padding: 10px;
   border: 1px solid #e3e3e3;
+}
+
+.compact-card {
+  padding-top: 8px;
+  padding-bottom: 8px;
 }
 
 .notice {
@@ -53,39 +75,47 @@ nav a {
   border-radius: 6px;
 }
 
-
-.latest-move-card {
-  border: 2px solid #6ea8ff;
-  background: linear-gradient(135deg, #f3f8ff, #e8f1ff);
+.board-title {
+  margin-bottom: 6px;
 }
 
 .last-move {
   background: #f3f7ff;
   border: 1px solid #c8d9ff;
-  border-radius: 8px;
-  padding: 10px 12px;
-  margin: 0;
-  font-size: 1.05rem;
+  border-radius: 7px;
+  padding: 7px 9px;
+  margin: 0 0 8px;
   font-weight: 600;
+}
+
+.status-grid {
+  display: grid;
+  gap: 4px;
+  margin-bottom: 8px;
+}
+
+.status-grid p {
+  margin: 0;
+  font-size: 0.95rem;
 }
 
 .board-layout {
   display: grid;
-  grid-template-columns: minmax(120px, 170px) auto minmax(120px, 170px);
-  gap: 12px;
+  grid-template-columns: minmax(100px, 150px) auto minmax(100px, 150px);
+  gap: 8px;
   align-items: start;
 }
 
 .hand-box {
   border: 1px solid #ddd;
   border-radius: 8px;
-  padding: 8px;
+  padding: 6px;
   background: #fafafa;
 }
 
 .hand-pieces {
   display: flex;
-  gap: 6px;
+  gap: 4px;
   flex-wrap: wrap;
 }
 
@@ -94,7 +124,8 @@ nav a {
   border-radius: 6px;
   background: #fff;
   color: #333;
-  padding: 6px 8px;
+  padding: 4px 6px;
+  line-height: 1.2;
 }
 
 .hand-piece.selectable {
@@ -109,7 +140,7 @@ nav a {
 .active-hand {
   background: #eef5ff;
   border-radius: 6px;
-  padding: 4px;
+  padding: 3px;
 }
 
 .empty-hand {
@@ -135,8 +166,8 @@ nav a {
 
 .board-coord th {
   width: 34px;
-  height: 20px;
-  font-size: 0.85rem;
+  height: 18px;
+  font-size: 0.82rem;
   font-weight: 600;
   color: #444;
 }
@@ -186,18 +217,19 @@ nav a {
 
 .vote-form {
   display: grid;
-  gap: 8px;
+  gap: 6px;
 }
 
 .vote-guide {
   margin: 6px 0;
+  font-size: 0.95rem;
 }
 
 select,
 button,
 input {
-  font-size: 1rem;
-  padding: 8px;
+  font-size: 0.96rem;
+  padding: 7px;
 }
 
 button {
@@ -221,7 +253,16 @@ button:disabled {
   display: flex;
   justify-content: space-between;
   border-bottom: 1px solid #eee;
-  padding: 6px 0;
+  padding: 5px 0;
+  gap: 6px;
+}
+
+.ranking li span:first-child {
+  flex: 1;
+}
+
+.ranking-more {
+  margin-top: 6px;
 }
 
 .adopted-move {
@@ -229,9 +270,8 @@ button:disabled {
   background: #eef7ff;
 }
 
-
 .view-controls {
-  margin: 8px 0 10px;
+  margin: 6px 0 2px;
 }
 
 .toggle-link {
@@ -239,8 +279,18 @@ button:disabled {
   text-decoration: none;
   background: #1f7a36;
   color: #fff;
-  padding: 8px 10px;
+  padding: 7px 10px;
   border-radius: 6px;
+}
+
+.compact-details summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.compact-details p {
+  margin: 8px 0 0;
+  font-size: 0.92rem;
 }
 
 .history-nav {
@@ -276,7 +326,19 @@ form.inline {
   flex-wrap: wrap;
 }
 
-@media (max-width: 860px) {
+@media (min-width: 980px) {
+  .top-layout {
+    grid-template-columns: minmax(0, 1.35fr) minmax(280px, 0.65fr);
+    gap: 12px;
+  }
+
+  .right-column {
+    position: sticky;
+    top: 10px;
+  }
+}
+
+@media (max-width: 900px) {
   .board-layout {
     grid-template-columns: 1fr;
   }
