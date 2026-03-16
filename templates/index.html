@@ -17,9 +17,12 @@
   </header>
 
   <main class="container">
+    <section class="card latest-move-card">
+      <p class="last-move"><strong>直前の確定手：</strong>{{ last_move_text }}</p>
+    </section>
+
     <section class="card">
       <h2>現在局面（{{ round_index - 1 }}手目まで反映）</h2>
-      <p class="last-move"><strong>直前の確定手：</strong>{{ last_move_text }}</p>
       <p><strong>現在手番：</strong>{{ side_to_move }}</p>
       <p><strong>投票締切：</strong>毎日 {{ cutoff_time }}</p>
       <p><strong>締切まで残り：</strong><span id="countdown"></span></p>
