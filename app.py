@@ -405,11 +405,11 @@ def get_vote_ranking(game_id: int, round_index: int):
     db = get_db()
     rows = db.execute(
         """
-        SELECT move_usi, COUNT(*) AS votes
+        SELECT move_usi, COUNT(*) AS votes, MAX(id) AS last_vote_id
         FROM votes
         WHERE game_id = ? AND round_index = ?
         GROUP BY move_usi
-        ORDER BY votes DESC, move_usi ASC
+        ORDER BY votes DESC, last_vote_id DESC, move_usi ASC
         """,
         (game_id, round_index),
     ).fetchall()
@@ -675,11 +675,11 @@ def history_game(game_id: int):
 
     votes_rows = db.execute(
         """
-        SELECT move_usi, COUNT(*) AS votes
+        SELECT move_usi, COUNT(*) AS votes, MAX(id) AS last_vote_id
         FROM votes
         WHERE game_id = ? AND round_index = ?
         GROUP BY move_usi
-        ORDER BY votes DESC, move_usi ASC
+        ORDER BY votes DESC, last_vote_id DESC, move_usi ASC
         """,
         (game_id, selected_ply),
     ).fetchall()
