@@ -51,3 +51,13 @@ def test_finalize_round_adopts_last_voted_move_when_votes_are_tied(tmp_path):
     assert adopted == moves[1]
     assert stored["usi"] == moves[1]
     assert stored["voted_count"] == 1
+
+
+def test_board_coordinate_labels_use_numbers_on_top_and_kanji_on_side():
+    assert shogi_app.board_top_labels(False) == [str(n) for n in range(9, 0, -1)]
+    assert shogi_app.board_side_labels(False) == ["一", "二", "三", "四", "五", "六", "七", "八", "九"]
+
+
+def test_board_coordinate_labels_reverse_when_rotated():
+    assert shogi_app.board_top_labels(True) == [str(n) for n in range(1, 10)]
+    assert shogi_app.board_side_labels(True) == ["九", "八", "七", "六", "五", "四", "三", "二", "一"]
