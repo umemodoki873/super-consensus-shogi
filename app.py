@@ -191,6 +191,14 @@ def build_board_cells(board: shogi.Board, is_rotated: bool):
     return rows
 
 
+def board_top_labels(is_rotated: bool):
+    return [str(n) for n in range(9, 0, -1)] if not is_rotated else [str(n) for n in range(1, 10)]
+
+
+def board_side_labels(is_rotated: bool):
+    return ["一", "二", "三", "四", "五", "六", "七", "八", "九"] if not is_rotated else ["九", "八", "七", "六", "五", "四", "三", "二", "一"]
+
+
 def piece_class(piece: Optional[shogi.Piece], is_rotated: bool) -> str:
     if piece is None:
         return ""
@@ -591,12 +599,8 @@ def index():
             cutoff_time=cutoff.strftime("%H:%M"),
             cutoff_epoch=int(cutoff.timestamp()),
             server_now_epoch=int(now.timestamp()),
-            top_labels=(
-                ["九", "八", "七", "六", "五", "四", "三", "二", "一"]
-                if not is_rotated
-                else ["一", "二", "三", "四", "五", "六", "七", "八", "九"]
-            ),
-            side_labels=([str(n) for n in range(1, 10)] if not is_rotated else [str(n) for n in range(9, 0, -1)]),
+            top_labels=board_top_labels(is_rotated),
+            side_labels=board_side_labels(is_rotated),
             black_hand=build_hand_data(board, shogi.BLACK, board.turn == shogi.BLACK),
             white_hand=build_hand_data(board, shogi.WHITE, board.turn == shogi.WHITE),
             last_move_text=get_last_move_info(game_id),
@@ -717,12 +721,8 @@ def history_game(game_id: int):
         manual_flip=manual_flip,
         board_cells=build_board_cells(board, is_rotated),
         board_rotated=is_rotated,
-        top_labels=(
-            ["九", "八", "七", "六", "五", "四", "三", "二", "一"]
-            if not is_rotated
-            else ["一", "二", "三", "四", "五", "六", "七", "八", "九"]
-        ),
-        side_labels=([str(n) for n in range(1, 10)] if not is_rotated else [str(n) for n in range(9, 0, -1)]),
+        top_labels=board_top_labels(is_rotated),
+        side_labels=board_side_labels(is_rotated),
         black_hand=build_hand_data(board, shogi.BLACK, False),
         white_hand=build_hand_data(board, shogi.WHITE, False),
         ranking_display=ranking_display,
