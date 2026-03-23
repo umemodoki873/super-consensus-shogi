@@ -168,8 +168,8 @@
 
   <aside id="share-prompt" class="share-prompt" hidden aria-live="polite">
     <button type="button" class="share-prompt-close" aria-label="シェア案内を閉じる">×</button>
-    <p class="share-prompt-label">投票受付が終了しました</p>
-    <p class="share-prompt-text">このラウンドの結果待ちをX（Twitter）でシェアして、次の一手への参加を広めましょう。</p>
+    <p class="share-prompt-label">投票ありがとうございました</p>
+    <p class="share-prompt-text">この一手をX（Twitter）でシェアして、次のラウンドの参加者を増やしましょう。</p>
     <a id="share-prompt-link" class="share-prompt-link" href="#" target="_blank" rel="noopener noreferrer">Xでシェアする</a>
   </aside>
 
@@ -179,6 +179,7 @@
       const sharePromptEl = document.getElementById('share-prompt');
       const sharePromptLink = document.getElementById('share-prompt-link');
       const sharePromptClose = document.querySelector('.share-prompt-close');
+      const shouldShowSharePrompt = {{ 'true' if show_share_prompt else 'false' }};
       const serverNowEpoch = {{ server_now_epoch }};
       const cutoffEpoch = {{ cutoff_epoch }};
       const clientNowAtLoad = Math.floor(Date.now() / 1000);
@@ -191,43 +192,33 @@
         return Math.max(cutoffEpoch - adjustedNow, 0);
       }
 
-      function openSharePrompt() {
-        if (!sharePromptEl || sharePromptShown) {
+      function stripShareQueryParam() {
+        const currentUrl = new URL(window.location.href);
+        if (!currentUrl.searchParams.has('share')) {
           return;
         }
 
-        const shareText = `超合議制将棋の第{{ round_index }}ラウンド投票が締め切られました。結果発表と次の一手もぜひ参加してください！`;
+        currentUrl.searchParams.delete('share');
+        window.history.replaceState({}, '', currentUrl);
+      }
+
+      function openSharePrompt() {
+        if (!sharePromptEl) {
+          return;
+        }
+
+        const currentUrl = new URL(window.location.href);
+        currentUrl.searchParams.delete('share');
+
+        const shareText = `超合議制将棋で第{{ round_index }}ラウンドに投票しました。みんなも次の一手に参加してください！`;
         const shareUrl = new URL('https://twitter.com/intent/tweet');
         shareUrl.searchParams.set('text', shareText);
-        shareUrl.searchParams.set('url', window.location.href);
+        shareUrl.searchParams.set('url', currentUrl.toString());
         sharePromptLink.href = shareUrl.toString();
 
         sharePromptEl.hidden = false;
         sharePromptEl.classList.add('is-visible');
-        sharePromptShown = true;
-
-        try {
-          window.localStorage.setItem(sharePromptStorageKey, '1');
-        } catch (error) {
-          // localStorage が使えない環境でも案内表示は継続する
-        }
-      }
-
-      function maybeShowSharePrompt(remain) {
-        if (remain > 0 || sharePromptShown) {
-          return;
-        }
-
-        try {
-          if (window.localStorage.getItem(sharePromptStorageKey) === '1') {
-            sharePromptShown = true;
-            return;
-          }
-        } catch (error) {
-          // localStorage が使えない場合はそのまま表示判定を続ける
-        }
-
-        openSharePrompt();
+        stripShareQueryParam();
       }
 
       function renderCountdown() {
@@ -252,10 +243,22 @@
         });
       }
 
+      if (sharePromptClose) {
+        sharePromptClose.addEventListener('click', () => {
+          sharePromptEl.hidden = true;
+          sharePromptEl.classList.remove('is-visible');
+          stripShareQueryParam();
+        });
+      }
+
       renderCountdown();
       setInterval(renderCountdown, 1000);
       document.addEventListener('visibilitychange', renderCountdown);
       window.addEventListener('focus', renderCountdown);
+
+      if (shouldShowSharePrompt) {
+        openSharePrompt();
+      }
 
       const voted = {{ 'true' if voted else 'false' }};
       const gameOver = {{ 'true' if game_over else 'false' }};
