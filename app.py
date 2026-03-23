@@ -571,6 +571,7 @@ def index():
 
     voter_token = get_client_token()
     voted = has_voted(game_id, round_index, voter_token)
+    show_share_prompt = query_flag("share") and voted
     cutoff = get_round_deadline(game_id)
     now = now_jst()
     remaining = cutoff - now
@@ -594,6 +595,7 @@ def index():
             legal_move_usis=legal_move_usis,
             ranking_display=ranking_display,
             voted=voted,
+            show_share_prompt=show_share_prompt,
             round_index=round_index + 1,
             remaining_seconds=remaining_seconds,
             cutoff_time=cutoff.strftime("%H:%M"),
@@ -629,9 +631,11 @@ def vote():
     round_index = get_round_index(game_id)
     token = get_client_token()
     ip = request.headers.get("X-Forwarded-For", request.remote_addr or "")
-    register_vote(game_id, round_index, move_usi, token, ip)
+    vote_registered = register_vote(game_id, round_index, move_usi, token, ip)
 
     redirect_kwargs = {"flip": "1"} if query_flag("flip") else {}
+    if vote_registered:
+        redirect_kwargs["share"] = "1"
     resp = make_response(redirect(url_for("index", **redirect_kwargs)))
     if "voter_token" not in request.cookies:
         resp.set_cookie("voter_token", token, max_age=60 * 60 * 24 * 365)
