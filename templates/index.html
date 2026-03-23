@@ -203,7 +203,7 @@
       }
 
       function openSharePrompt() {
-        if (!sharePromptEl) {
+        if (!sharePromptEl || sharePromptShown) {
           return;
         }
 
@@ -218,7 +218,16 @@
 
         sharePromptEl.hidden = false;
         sharePromptEl.classList.add('is-visible');
+        sharePromptShown = true;
         stripShareQueryParam();
+      }
+
+      function maybeShowSharePrompt(remain) {
+        if (!shouldShowSharePrompt || remain > 0 || sharePromptShown) {
+          return;
+        }
+
+        openSharePrompt();
       }
 
       function renderCountdown() {
@@ -240,13 +249,6 @@
           } catch (error) {
             // 保存できない環境では何もしない
           }
-        });
-      }
-
-      if (sharePromptClose) {
-        sharePromptClose.addEventListener('click', () => {
-          sharePromptEl.hidden = true;
-          sharePromptEl.classList.remove('is-visible');
           stripShareQueryParam();
         });
       }
