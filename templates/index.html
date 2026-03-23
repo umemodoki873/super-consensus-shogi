@@ -166,17 +166,68 @@
     </aside>
   </main>
 
+  <aside id="share-prompt" class="share-prompt" hidden aria-live="polite">
+    <button type="button" class="share-prompt-close" aria-label="シェア案内を閉じる">×</button>
+    <p class="share-prompt-label">投票受付が終了しました</p>
+    <p class="share-prompt-text">このラウンドの結果待ちをX（Twitter）でシェアして、次の一手への参加を広めましょう。</p>
+    <a id="share-prompt-link" class="share-prompt-link" href="#" target="_blank" rel="noopener noreferrer">Xでシェアする</a>
+  </aside>
+
   <script>
     (function () {
       const countdownEl = document.getElementById('countdown');
+      const sharePromptEl = document.getElementById('share-prompt');
+      const sharePromptLink = document.getElementById('share-prompt-link');
+      const sharePromptClose = document.querySelector('.share-prompt-close');
       const serverNowEpoch = {{ server_now_epoch }};
       const cutoffEpoch = {{ cutoff_epoch }};
       const clientNowAtLoad = Math.floor(Date.now() / 1000);
       const serverClientOffset = serverNowEpoch - clientNowAtLoad;
+      const sharePromptStorageKey = 'share-prompt-seen-{{ round_index }}-{{ cutoff_epoch }}';
+      let sharePromptShown = false;
 
       function remainingSeconds() {
         const adjustedNow = Math.floor(Date.now() / 1000) + serverClientOffset;
         return Math.max(cutoffEpoch - adjustedNow, 0);
+      }
+
+      function openSharePrompt() {
+        if (!sharePromptEl || sharePromptShown) {
+          return;
+        }
+
+        const shareText = `超合議制将棋の第{{ round_index }}ラウンド投票が締め切られました。結果発表と次の一手もぜひ参加してください！`;
+        const shareUrl = new URL('https://twitter.com/intent/tweet');
+        shareUrl.searchParams.set('text', shareText);
+        shareUrl.searchParams.set('url', window.location.href);
+        sharePromptLink.href = shareUrl.toString();
+
+        sharePromptEl.hidden = false;
+        sharePromptEl.classList.add('is-visible');
+        sharePromptShown = true;
+
+        try {
+          window.localStorage.setItem(sharePromptStorageKey, '1');
+        } catch (error) {
+          // localStorage が使えない環境でも案内表示は継続する
+        }
+      }
+
+      function maybeShowSharePrompt(remain) {
+        if (remain > 0 || sharePromptShown) {
+          return;
+        }
+
+        try {
+          if (window.localStorage.getItem(sharePromptStorageKey) === '1') {
+            sharePromptShown = true;
+            return;
+          }
+        } catch (error) {
+          // localStorage が使えない場合はそのまま表示判定を続ける
+        }
+
+        openSharePrompt();
       }
 
       function renderCountdown() {
@@ -184,7 +235,21 @@
         const h = Math.floor(remain / 3600);
         const m = Math.floor((remain % 3600) / 60);
         const s = remain % 60;
-        countdownEl.textContent = `${h}時間 ${m}分 ${s}秒`;
+        countdownEl.textContent = remain === 0 ? '投票受付終了' : `${h}時間 ${m}分 ${s}秒`;
+        maybeShowSharePrompt(remain);
+      }
+
+      if (sharePromptClose) {
+        sharePromptClose.addEventListener('click', () => {
+          sharePromptEl.hidden = true;
+          sharePromptEl.classList.remove('is-visible');
+          sharePromptShown = true;
+          try {
+            window.localStorage.setItem(sharePromptStorageKey, '1');
+          } catch (error) {
+            // 保存できない環境では何もしない
+          }
+        });
       }
 
       renderCountdown();
