@@ -365,3 +365,80 @@ form.inline {
     height: 30px;
   }
 }
+
+.share-prompt {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  width: min(320px, calc(100vw - 24px));
+  padding: 12px 14px 14px;
+  border: 1px solid #c8d9ff;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.98);
+  box-shadow: 0 12px 28px rgba(17, 24, 39, 0.18);
+  z-index: 20;
+}
+
+.share-prompt.is-visible {
+  animation: sharePromptFadeIn 0.2s ease-out;
+}
+
+.share-prompt-label {
+  margin: 0 28px 6px 0;
+  font-size: 0.86rem;
+  font-weight: 700;
+  color: #1d4ed8;
+}
+
+.share-prompt-text {
+  margin: 0;
+  font-size: 0.92rem;
+  line-height: 1.5;
+}
+
+.share-prompt-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 10px;
+  padding: 8px 12px;
+  border-radius: 999px;
+  background: #111827;
+  color: #fff;
+  text-decoration: none;
+  font-weight: 700;
+}
+
+.share-prompt-close {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: #555;
+  border: 1px solid #d1d5db;
+  line-height: 1;
+}
+
+@keyframes sharePromptFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (max-width: 600px) {
+  .share-prompt {
+    right: 12px;
+    bottom: 12px;
+    width: calc(100vw - 24px);
+  }
+}
