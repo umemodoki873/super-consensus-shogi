@@ -2,10 +2,11 @@ import os
 import sqlite3
 import uuid
 from datetime import datetime, timedelta
+from html import escape
 from typing import Optional
 
 import shogi
-from flask import Flask, g, redirect, render_template, request, url_for, make_response
+from flask import Flask, Response, g, redirect, render_template, request, url_for, make_response
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DB_PATH = os.path.join(BASE_DIR, "shogi.db")
@@ -336,6 +337,65 @@ def usi_move_to_ki2(move_usi: str, board_before: shogi.Board, previous_usi: Opti
     return f"{destination}{piece_name}{suffix}"
 
 
+def create_share_board_svg(board: shogi.Board, move_usi: str, move_label: str) -> str:
+    board_size = 540
+    margin = 24
+    cell = board_size // 9
+    total_width = margin * 2 + board_size
+    total_height = margin * 2 + board_size + 72
+
+    highlight_square: Optional[int] = None
+    if move_usi:
+        try:
+            highlight_square = shogi.Move.from_usi(move_usi).to_square
+        except ValueError:
+            highlight_square = None
+
+    lines = [
+        f'<svg xmlns="http://www.w3.org/2000/svg" width="{total_width}" height="{total_height}" viewBox="0 0 {total_width} {total_height}">',
+        '<rect width="100%" height="100%" fill="#f8f6ef"/>',
+        f'<rect x="{margin}" y="{margin}" width="{board_size}" height="{board_size}" fill="#f2d9a6" stroke="#5d4037" stroke-width="3"/>',
+    ]
+
+    for idx in range(10):
+        pos = margin + idx * cell
+        lines.append(f'<line x1="{margin}" y1="{pos}" x2="{margin + board_size}" y2="{pos}" stroke="#7b5b34" stroke-width="1"/>')
+        lines.append(f'<line x1="{pos}" y1="{margin}" x2="{pos}" y2="{margin + board_size}" stroke="#7b5b34" stroke-width="1"/>')
+
+    if highlight_square is not None:
+        file_idx = highlight_square % 9
+        rank_idx = highlight_square // 9
+        x = margin + file_idx * cell
+        y = margin + rank_idx * cell
+        lines.append(
+            f'<rect x="{x + 2}" y="{y + 2}" width="{cell - 4}" height="{cell - 4}" fill="#ffeb3b" fill-opacity="0.45"/>'
+        )
+
+    for rank in range(9):
+        for file in range(9):
+            square = file + rank * 9
+            piece = board.piece_at(square)
+            if piece is None:
+                continue
+            symbol = piece.japanese_symbol()
+            center_x = margin + file * cell + cell / 2
+            center_y = margin + rank * cell + cell / 2 + 1
+            transform = f' transform="rotate(180 {center_x} {center_y})"' if piece.color == shogi.WHITE else ""
+            lines.append(
+                f'<text x="{center_x}" y="{center_y}" text-anchor="middle" dominant-baseline="middle" font-size="36"'
+                f' font-family="sans-serif" fill="#111"{transform}>{escape(symbol)}</text>'
+            )
+
+    safe_move_label = escape(move_label) if move_label else "（未選択）"
+    caption_y = margin * 2 + board_size + 36
+    lines.append(
+        f'<text x="{total_width / 2}" y="{caption_y}" text-anchor="middle" font-size="28" font-family="sans-serif" fill="#111">'
+        f'選択した手: {safe_move_label}</text>'
+    )
+    lines.append("</svg>")
+    return "".join(lines)
+
+
 def move_destination_ki2(move: shogi.Move, previous_usi: Optional[str]) -> str:
     if previous_usi:
         prev = shogi.Move.from_usi(previous_usi)
@@ -553,6 +613,7 @@ def index():
     previous_usi = get_previous_move_usi(game_id)
     legal_moves = [] if board.is_game_over() else list_legal_moves(board, previous_usi)
     legal_move_usis = [m["usi"] for m in legal_moves]
+    legal_move_labels = {m["usi"]: m["ki2"] for m in legal_moves}
 
     ranking_rows = get_vote_ranking(game_id, round_index)
     legal_move_map = {m["usi"]: m["ki2"] for m in legal_moves}
@@ -593,6 +654,7 @@ def index():
             game_over=board.is_game_over(),
             legal_moves=legal_moves,
             legal_move_usis=legal_move_usis,
+            legal_move_labels=legal_move_labels,
             ranking_display=ranking_display,
             voted=voted,
             show_share_prompt=show_share_prompt,
@@ -611,6 +673,24 @@ def index():
     if "voter_token" not in request.cookies:
         resp.set_cookie("voter_token", voter_token, max_age=60 * 60 * 24 * 365)
     return resp
+
+
+@app.get("/share-board.svg")
+def share_board_image():
+    game_id = get_active_game_id()
+    if game_id is None:
+        game_id = start_new_game()
+
+    board = build_board(game_id)
+    move_usi = request.args.get("move_usi", "")
+    previous_usi = get_previous_move_usi(game_id)
+    move_label = ""
+    legal_usi = {m.usi() for m in board.legal_moves}
+    if move_usi in legal_usi:
+        move_label = usi_move_to_ki2(move_usi, board, previous_usi)
+
+    svg = create_share_board_svg(board, move_usi, move_label)
+    return Response(svg, mimetype="image/svg+xml")
 
 
 @app.post("/vote")
@@ -636,6 +716,7 @@ def vote():
     redirect_kwargs = {"flip": "1"} if query_flag("flip") else {}
     if vote_registered:
         redirect_kwargs["share"] = "1"
+        redirect_kwargs["move_usi"] = move_usi
     resp = make_response(redirect(url_for("index", **redirect_kwargs)))
     if "voter_token" not in request.cookies:
         resp.set_cookie("voter_token", token, max_age=60 * 60 * 24 * 365)
