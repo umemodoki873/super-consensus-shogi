@@ -180,6 +180,8 @@
       const sharePromptLink = document.getElementById('share-prompt-link');
       const sharePromptClose = document.querySelector('.share-prompt-close');
       const shouldShowSharePrompt = {{ 'true' if show_share_prompt else 'false' }};
+      const selectedMoveUsi = {{ request.args.get('move_usi', '')|tojson }};
+      const shareMoveLabels = {{ legal_move_labels|tojson }};
       const serverNowEpoch = {{ server_now_epoch }};
       const cutoffEpoch = {{ cutoff_epoch }};
       const clientNowAtLoad = Math.floor(Date.now() / 1000);
@@ -210,7 +212,13 @@
         const currentUrl = new URL(window.location.href);
         currentUrl.searchParams.delete('share');
 
-        const shareText = `超合議制将棋で第{{ round_index }}ラウンドに投票しました。みんなも次の一手に参加してください！`;
+        const selectedMoveLabel = shareMoveLabels[selectedMoveUsi] || selectedMoveUsi || '（手を選択）';
+        const boardImageUrl = new URL('{{ url_for("share_board_image") }}', window.location.origin);
+        if (selectedMoveUsi) {
+          boardImageUrl.searchParams.set('move_usi', selectedMoveUsi);
+        }
+
+        const shareText = `#超合議制将棋 第{{ round_index }}ラウンドで「${selectedMoveLabel}」に投票しました。\n盤面画像: ${boardImageUrl.toString()}`;
         const shareUrl = new URL('https://twitter.com/intent/tweet');
         shareUrl.searchParams.set('text', shareText);
         shareUrl.searchParams.set('url', currentUrl.toString());
@@ -269,6 +277,7 @@
       }
 
       const legalMoves = new Set({{ legal_move_usis|tojson }});
+      const legalMoveLabels = shareMoveLabels;
       const guideEl = document.getElementById('vote-guide');
       const moveInput = document.getElementById('move_usi');
       const submitBtn = document.getElementById('vote-submit');
@@ -309,6 +318,10 @@
         setGuide(message);
       }
 
+      function moveLabel(moveUsi) {
+        return legalMoveLabels[moveUsi] || moveUsi;
+      }
+
       boardCells.forEach((cell) => {
         cell.addEventListener('click', () => {
           const square = cell.dataset.square;
@@ -321,7 +334,7 @@
             }
             clearBoardSelection();
             cell.classList.add('selected-to');
-            enableSubmit(dropMove, `選択中: ${dropMove}（投票ボタンで確定）`);
+            enableSubmit(dropMove, `選択中: ${moveLabel(dropMove)}（投票ボタンで確定）`);
             return;
           }
 
@@ -350,7 +363,7 @@
           const fromCell = document.querySelector(`.board-cell[data-square="${fromSquare}"]`);
           if (fromCell) fromCell.classList.add('selected-from');
           cell.classList.add('selected-to');
-          enableSubmit(move, `選択中: ${move}（投票ボタンで確定）`);
+          enableSubmit(move, `選択中: ${moveLabel(move)}（投票ボタンで確定）`);
         });
       });
 
