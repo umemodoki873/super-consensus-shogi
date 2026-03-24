@@ -170,7 +170,7 @@
     <button type="button" class="share-prompt-close" aria-label="シェア案内を閉じる">×</button>
     <p class="share-prompt-label">投票ありがとうございました</p>
     <p class="share-prompt-text">この一手をX（Twitter）でシェアして、次のラウンドの参加者を増やしましょう。</p>
-    <a id="share-prompt-link" class="share-prompt-link" href="#" target="_blank" rel="noopener noreferrer">Xでシェアする</a>
+    <a id="share-prompt-link" class="share-prompt-link" href="#" target="_blank" rel="noopener noreferrer">Xでシェアする（画像添付）</a>
   </aside>
 
   <script>
@@ -188,6 +188,70 @@
       const serverClientOffset = serverNowEpoch - clientNowAtLoad;
       const sharePromptStorageKey = 'share-prompt-seen-{{ round_index }}-{{ cutoff_epoch }}';
       let sharePromptShown = false;
+      let shareIntentHref = '#';
+      let shareNativeText = '';
+      let shareBoardImageHref = '';
+
+      async function fetchShareImageFile() {
+        if (!shareBoardImageHref) {
+          return null;
+        }
+
+        const response = await fetch(shareBoardImageHref, { credentials: 'same-origin' });
+        if (!response.ok) {
+          throw new Error('failed to fetch share board image');
+        }
+
+        const svgBlob = await response.blob();
+        const svgText = await svgBlob.text();
+        const svgUrl = URL.createObjectURL(new Blob([svgText], { type: 'image/svg+xml' }));
+
+        try {
+          const image = await new Promise((resolve, reject) => {
+            const img = new Image();
+            img.onload = () => resolve(img);
+            img.onerror = () => reject(new Error('failed to load board image'));
+            img.src = svgUrl;
+          });
+
+          const canvas = document.createElement('canvas');
+          canvas.width = image.naturalWidth || 588;
+          canvas.height = image.naturalHeight || 660;
+          const ctx = canvas.getContext('2d');
+          if (!ctx) {
+            throw new Error('canvas context unavailable');
+          }
+          ctx.drawImage(image, 0, 0);
+
+          const pngBlob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/png'));
+          if (!pngBlob) {
+            throw new Error('failed to convert board image');
+          }
+          return new File([pngBlob], `consensus-shogi-round-{{ round_index }}.png`, { type: 'image/png' });
+        } finally {
+          URL.revokeObjectURL(svgUrl);
+        }
+      }
+
+      async function shareVoteToX() {
+        if (navigator.share) {
+          try {
+            const imageFile = await fetchShareImageFile();
+            const nativeSharePayload = { text: shareNativeText };
+            if (imageFile && navigator.canShare && navigator.canShare({ files: [imageFile] })) {
+              nativeSharePayload.files = [imageFile];
+            }
+            await navigator.share(nativeSharePayload);
+            return;
+          } catch (error) {
+            if (error && error.name === 'AbortError') {
+              return;
+            }
+          }
+        }
+
+        window.open(shareIntentHref, '_blank', 'noopener,noreferrer');
+      }
 
       function remainingSeconds() {
         const adjustedNow = Math.floor(Date.now() / 1000) + serverClientOffset;
@@ -217,12 +281,15 @@
         if (selectedMoveUsi) {
           boardImageUrl.searchParams.set('move_usi', selectedMoveUsi);
         }
+        shareBoardImageHref = boardImageUrl.toString();
 
-        const shareText = `#超合議制将棋 第{{ round_index }}ラウンドで「${selectedMoveLabel}」に投票しました。\n盤面画像: ${boardImageUrl.toString()}`;
+        const shareText = `#超合議制将棋 第{{ round_index }}ラウンドで「${selectedMoveLabel}」に投票しました。`;
         const shareUrl = new URL('https://twitter.com/intent/tweet');
         shareUrl.searchParams.set('text', shareText);
         shareUrl.searchParams.set('url', currentUrl.toString());
-        sharePromptLink.href = shareUrl.toString();
+        shareIntentHref = shareUrl.toString();
+        shareNativeText = `${shareText}\n${currentUrl.toString()}`;
+        sharePromptLink.href = shareIntentHref;
 
         sharePromptEl.hidden = false;
         sharePromptEl.classList.add('is-visible');
@@ -258,6 +325,13 @@
             // 保存できない環境では何もしない
           }
           stripShareQueryParam();
+        });
+      }
+
+      if (sharePromptLink) {
+        sharePromptLink.addEventListener('click', async (event) => {
+          event.preventDefault();
+          await shareVoteToX();
         });
       }
 
