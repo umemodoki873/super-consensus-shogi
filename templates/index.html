@@ -169,15 +169,21 @@
   <aside id="share-prompt" class="share-prompt" hidden aria-live="polite">
     <button type="button" class="share-prompt-close" aria-label="シェア案内を閉じる">×</button>
     <p class="share-prompt-label">投票ありがとうございました</p>
-    <p class="share-prompt-text">この一手をX（Twitter）でシェアして、次のラウンドの参加者を増やしましょう。</p>
-    <a id="share-prompt-link" class="share-prompt-link" href="#" target="_blank" rel="noopener noreferrer">Xでシェアする（画像添付）</a>
+    <p class="share-prompt-text">この一手を主要SNSに投稿して、次のラウンドの参加者を増やしましょう。</p>
+    <div class="share-prompt-actions">
+      <a id="share-link-x" class="share-prompt-link" href="#" target="_blank" rel="noopener noreferrer">Xに投稿</a>
+      <a id="share-link-facebook" class="share-prompt-link share-prompt-link-facebook" href="#" target="_blank" rel="noopener noreferrer">Facebookに投稿</a>
+      <a id="share-link-line" class="share-prompt-link share-prompt-link-line" href="#" target="_blank" rel="noopener noreferrer">LINEで送る</a>
+    </div>
   </aside>
 
   <script>
     (function () {
       const countdownEl = document.getElementById('countdown');
       const sharePromptEl = document.getElementById('share-prompt');
-      const sharePromptLink = document.getElementById('share-prompt-link');
+      const shareLinkX = document.getElementById('share-link-x');
+      const shareLinkFacebook = document.getElementById('share-link-facebook');
+      const shareLinkLine = document.getElementById('share-link-line');
       const sharePromptClose = document.querySelector('.share-prompt-close');
       const shouldShowSharePrompt = {{ 'true' if show_share_prompt else 'false' }};
       const selectedMoveUsi = {{ request.args.get('move_usi', '')|tojson }};
@@ -188,70 +194,9 @@
       const serverClientOffset = serverNowEpoch - clientNowAtLoad;
       const sharePromptStorageKey = 'share-prompt-seen-{{ round_index }}-{{ cutoff_epoch }}';
       let sharePromptShown = false;
-      let shareIntentHref = '#';
-      let shareNativeText = '';
-      let shareBoardImageHref = '';
-
-      async function fetchShareImageFile() {
-        if (!shareBoardImageHref) {
-          return null;
-        }
-
-        const response = await fetch(shareBoardImageHref, { credentials: 'same-origin' });
-        if (!response.ok) {
-          throw new Error('failed to fetch share board image');
-        }
-
-        const svgBlob = await response.blob();
-        const svgText = await svgBlob.text();
-        const svgUrl = URL.createObjectURL(new Blob([svgText], { type: 'image/svg+xml' }));
-
-        try {
-          const image = await new Promise((resolve, reject) => {
-            const img = new Image();
-            img.onload = () => resolve(img);
-            img.onerror = () => reject(new Error('failed to load board image'));
-            img.src = svgUrl;
-          });
-
-          const canvas = document.createElement('canvas');
-          canvas.width = image.naturalWidth || 588;
-          canvas.height = image.naturalHeight || 660;
-          const ctx = canvas.getContext('2d');
-          if (!ctx) {
-            throw new Error('canvas context unavailable');
-          }
-          ctx.drawImage(image, 0, 0);
-
-          const pngBlob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/png'));
-          if (!pngBlob) {
-            throw new Error('failed to convert board image');
-          }
-          return new File([pngBlob], `consensus-shogi-round-{{ round_index }}.png`, { type: 'image/png' });
-        } finally {
-          URL.revokeObjectURL(svgUrl);
-        }
-      }
-
-      async function shareVoteToX() {
-        if (navigator.share) {
-          try {
-            const imageFile = await fetchShareImageFile();
-            const nativeSharePayload = { text: shareNativeText };
-            if (imageFile && navigator.canShare && navigator.canShare({ files: [imageFile] })) {
-              nativeSharePayload.files = [imageFile];
-            }
-            await navigator.share(nativeSharePayload);
-            return;
-          } catch (error) {
-            if (error && error.name === 'AbortError') {
-              return;
-            }
-          }
-        }
-
-        window.open(shareIntentHref, '_blank', 'noopener,noreferrer');
-      }
+      let shareIntentHrefX = "#";
+      let shareIntentHrefFacebook = "#";
+      let shareIntentHrefLine = "#";
 
       function remainingSeconds() {
         const adjustedNow = Math.floor(Date.now() / 1000) + serverClientOffset;
@@ -277,19 +222,25 @@
         currentUrl.searchParams.delete('share');
 
         const selectedMoveLabel = shareMoveLabels[selectedMoveUsi] || selectedMoveUsi || '（手を選択）';
-        const boardImageUrl = new URL('{{ url_for("share_board_image") }}', window.location.origin);
-        if (selectedMoveUsi) {
-          boardImageUrl.searchParams.set('move_usi', selectedMoveUsi);
-        }
-        shareBoardImageHref = boardImageUrl.toString();
-
         const shareText = `#超合議制将棋 第{{ round_index }}ラウンドで「${selectedMoveLabel}」に投票しました。`;
-        const shareUrl = new URL('https://twitter.com/intent/tweet');
-        shareUrl.searchParams.set('text', shareText);
-        shareUrl.searchParams.set('url', currentUrl.toString());
-        shareIntentHref = shareUrl.toString();
-        shareNativeText = `${shareText}\n${currentUrl.toString()}`;
-        sharePromptLink.href = shareIntentHref;
+
+        const shareUrlX = new URL('https://twitter.com/intent/tweet');
+        shareUrlX.searchParams.set('text', shareText);
+        shareUrlX.searchParams.set('url', currentUrl.toString());
+        shareIntentHrefX = shareUrlX.toString();
+
+        const shareUrlFacebook = new URL('https://www.facebook.com/sharer/sharer.php');
+        shareUrlFacebook.searchParams.set('u', currentUrl.toString());
+        shareUrlFacebook.searchParams.set('quote', shareText);
+        shareIntentHrefFacebook = shareUrlFacebook.toString();
+
+        const shareUrlLine = new URL('https://social-plugins.line.me/lineit/share');
+        shareUrlLine.searchParams.set('url', `${currentUrl.toString()}\n${shareText}`);
+        shareIntentHrefLine = shareUrlLine.toString();
+
+        if (shareLinkX) shareLinkX.href = shareIntentHrefX;
+        if (shareLinkFacebook) shareLinkFacebook.href = shareIntentHrefFacebook;
+        if (shareLinkLine) shareLinkLine.href = shareIntentHrefLine;
 
         sharePromptEl.hidden = false;
         sharePromptEl.classList.add('is-visible');
@@ -325,13 +276,6 @@
             // 保存できない環境では何もしない
           }
           stripShareQueryParam();
-        });
-      }
-
-      if (sharePromptLink) {
-        sharePromptLink.addEventListener('click', async (event) => {
-          event.preventDefault();
-          await shareVoteToX();
         });
       }
 

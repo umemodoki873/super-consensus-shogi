@@ -409,6 +409,25 @@ form.inline {
   font-weight: 700;
 }
 
+.share-prompt-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.share-prompt-actions .share-prompt-link {
+  margin-top: 0;
+}
+
+.share-prompt-link-facebook {
+  background: #1877f2;
+}
+
+.share-prompt-link-line {
+  background: #06c755;
+}
+
 .share-prompt-close {
   position: absolute;
   top: 8px;
