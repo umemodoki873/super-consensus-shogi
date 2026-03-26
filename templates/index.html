@@ -105,6 +105,12 @@
         <h2>盤面クリックで投票</h2>
         {% if voted %}
           <p class="notice">この端末は現局面での投票は済んでいます（1端末1票）。</p>
+          <div class="share-prompt-actions">
+            <a class="share-prompt-link" href="{{ share_url_x }}" target="_blank" rel="noopener noreferrer">Xに投稿</a>
+            <a class="share-prompt-link share-prompt-link-threads" href="{{ share_url_threads }}" target="_blank" rel="noopener noreferrer">Threadsに投稿</a>
+            <a class="share-prompt-link share-prompt-link-facebook" href="{{ share_url_facebook }}" target="_blank" rel="noopener noreferrer">Facebookに投稿</a>
+            <a class="share-prompt-link share-prompt-link-line" href="{{ share_url_line }}" target="_blank" rel="noopener noreferrer">LINEで送る</a>
+          </div>
         {% endif %}
         <p id="vote-guide" class="vote-guide">盤上の駒、または手番側の持ち駒を選び、次に移動先をクリックしてください。</p>
         <form method="post" action="{{ url_for('vote', flip=1) if manual_flip else url_for('vote') }}" id="vote-form" class="vote-form">

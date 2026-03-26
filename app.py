@@ -4,6 +4,7 @@ import uuid
 from datetime import datetime, timedelta
 from html import escape
 from typing import Optional
+from urllib.parse import urlencode
 
 import shogi
 from flask import Flask, Response, g, redirect, render_template, request, url_for, make_response
@@ -653,7 +654,7 @@ def index():
     if selected_move_usi not in legal_move_usis:
         selected_move_usi = voted_move_usi if voted_move_usi in legal_move_usis else ""
     selected_move_label = legal_move_labels.get(selected_move_usi, "")
-    show_share_prompt = voted
+    show_share_prompt = query_flag("share") and voted
     cutoff = get_round_deadline(game_id)
     now = now_jst()
     remaining = cutoff - now
@@ -675,6 +676,11 @@ def index():
         move_usi=selected_move_usi,
         v=f"{game_id}-{round_index}",
     )
+    share_text = f"#超合議制将棋 {round_index + 1}手目で「{selected_move_label or '（手を選択）'}」に投票しました。"
+    share_url_x = "https://twitter.com/intent/tweet?" + urlencode({"text": share_text, "url": ogp_url})
+    share_url_facebook = "https://www.facebook.com/sharer/sharer.php?" + urlencode({"u": ogp_url, "quote": share_text})
+    share_url_threads = "https://www.threads.net/intent/post?" + urlencode({"text": f"{share_text}\n{ogp_url}"})
+    share_url_line = "https://social-plugins.line.me/lineit/share?" + urlencode({"url": f"{ogp_url}\n{share_text}"})
 
     resp = make_response(
         render_template(
@@ -694,6 +700,10 @@ def index():
             ranking_display=ranking_display,
             voted=voted,
             show_share_prompt=show_share_prompt,
+            share_url_x=share_url_x,
+            share_url_threads=share_url_threads,
+            share_url_facebook=share_url_facebook,
+            share_url_line=share_url_line,
             round_index=round_index + 1,
             remaining_seconds=remaining_seconds,
             cutoff_time=cutoff.strftime("%H:%M"),
