@@ -464,7 +464,7 @@ def get_cutoff_datetime(now: datetime) -> datetime:
 
 
 def get_round_deadline(game_id: int) -> datetime:
-    # MVP簡略化: 各ラウンドは「次の締切時刻」まで。ラウンド開始時刻は保持しない。
+    # MVP簡略化: 投票期間は「次の締切時刻」まで。開始時刻は保持しない。
     _ = game_id
     return get_cutoff_datetime(now_jst())
 
@@ -498,6 +498,23 @@ def has_voted(game_id: int, round_index: int, voter_token: str) -> bool:
         (game_id, round_index, voter_token),
     ).fetchone()
     return row is not None
+
+
+def get_voted_move_usi(game_id: int, round_index: int, voter_token: str) -> str:
+    db = get_db()
+    row = db.execute(
+        """
+        SELECT move_usi
+        FROM votes
+        WHERE game_id = ? AND round_index = ? AND voter_token = ?
+        ORDER BY id DESC
+        LIMIT 1
+        """,
+        (game_id, round_index, voter_token),
+    ).fetchone()
+    if row is None:
+        return ""
+    return str(row["move_usi"])
 
 
 def register_vote(game_id: int, round_index: int, move_usi: str, voter_token: str, ip: str) -> bool:
@@ -614,7 +631,6 @@ def index():
     legal_moves = [] if board.is_game_over() else list_legal_moves(board, previous_usi)
     legal_move_usis = [m["usi"] for m in legal_moves]
     legal_move_labels = {m["usi"]: m["ki2"] for m in legal_moves}
-
     ranking_rows = get_vote_ranking(game_id, round_index)
     legal_move_map = {m["usi"]: m["ki2"] for m in legal_moves}
     ranking_display = []
@@ -632,7 +648,12 @@ def index():
 
     voter_token = get_client_token()
     voted = has_voted(game_id, round_index, voter_token)
-    show_share_prompt = query_flag("share") and voted
+    voted_move_usi = get_voted_move_usi(game_id, round_index, voter_token) if voted else ""
+    selected_move_usi = request.args.get("move_usi", "")
+    if selected_move_usi not in legal_move_usis:
+        selected_move_usi = voted_move_usi if voted_move_usi in legal_move_usis else ""
+    selected_move_label = legal_move_labels.get(selected_move_usi, "")
+    show_share_prompt = voted
     cutoff = get_round_deadline(game_id)
     now = now_jst()
     remaining = cutoff - now
@@ -640,6 +661,20 @@ def index():
     manual_flip = query_flag("flip")
     auto_rotated = board.turn == shogi.WHITE
     is_rotated = auto_rotated ^ manual_flip
+
+    ogp_title = "超合議制将棋"
+    ogp_description = f"{round_index + 1}手目の投票受付中。みんなで次の一手を決めよう。"
+    if selected_move_label:
+        ogp_title = f"「{selected_move_label}」に投票しました | 超合議制将棋"
+        ogp_description = f"{round_index + 1}手目で「{selected_move_label}」に投票しました。あなたも参加しよう。"
+
+    ogp_url = url_for("index", _external=True, move_usi=selected_move_usi) if selected_move_usi else url_for("index", _external=True)
+    ogp_image = url_for(
+        "share_board_image",
+        _external=True,
+        move_usi=selected_move_usi,
+        v=f"{game_id}-{round_index}",
+    )
 
     resp = make_response(
         render_template(
@@ -655,6 +690,7 @@ def index():
             legal_moves=legal_moves,
             legal_move_usis=legal_move_usis,
             legal_move_labels=legal_move_labels,
+            selected_move_usi=selected_move_usi,
             ranking_display=ranking_display,
             voted=voted,
             show_share_prompt=show_share_prompt,
@@ -668,6 +704,10 @@ def index():
             black_hand=build_hand_data(board, shogi.BLACK, board.turn == shogi.BLACK),
             white_hand=build_hand_data(board, shogi.WHITE, board.turn == shogi.WHITE),
             last_move_text=get_last_move_info(game_id),
+            ogp_title=ogp_title,
+            ogp_description=ogp_description,
+            ogp_url=ogp_url,
+            ogp_image=ogp_image,
         )
     )
     if "voter_token" not in request.cookies:
