@@ -424,6 +424,10 @@ form.inline {
   background: #1877f2;
 }
 
+.share-prompt-link-threads {
+  background: #000;
+}
+
 .share-prompt-link-line {
   background: #06c755;
 }

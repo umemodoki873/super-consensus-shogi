@@ -4,6 +4,18 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>{{ title }}</title>
+  <meta property="og:title" content="{{ ogp_title }}" />
+  <meta property="og:description" content="{{ ogp_description }}" />
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="{{ ogp_url }}" />
+  <meta property="og:image" content="{{ ogp_image }}" />
+  <meta property="og:image:type" content="image/svg+xml" />
+  <meta property="og:image:width" content="588" />
+  <meta property="og:image:height" content="660" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="{{ ogp_title }}" />
+  <meta name="twitter:description" content="{{ ogp_description }}" />
+  <meta name="twitter:image" content="{{ ogp_image }}" />
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
 </head>
 <body>
@@ -92,7 +104,13 @@
       <section class="card vote-card">
         <h2>盤面クリックで投票</h2>
         {% if voted %}
-          <p class="notice">この端末はこのラウンドで投票済みです（1端末1票）。</p>
+          <p class="notice">この端末は現局面での投票は済んでいます（1端末1票）。</p>
+          <div class="share-prompt-actions">
+            <a class="share-prompt-link" href="{{ share_url_x }}" target="_blank" rel="noopener noreferrer">Xに投稿</a>
+            <a class="share-prompt-link share-prompt-link-threads" href="{{ share_url_threads }}" target="_blank" rel="noopener noreferrer">Threadsに投稿</a>
+            <a class="share-prompt-link share-prompt-link-facebook" href="{{ share_url_facebook }}" target="_blank" rel="noopener noreferrer">Facebookに投稿</a>
+            <a class="share-prompt-link share-prompt-link-line" href="{{ share_url_line }}" target="_blank" rel="noopener noreferrer">LINEで送る</a>
+          </div>
         {% endif %}
         <p id="vote-guide" class="vote-guide">盤上の駒、または手番側の持ち駒を選び、次に移動先をクリックしてください。</p>
         <form method="post" action="{{ url_for('vote', flip=1) if manual_flip else url_for('vote') }}" id="vote-form" class="vote-form">
@@ -169,9 +187,10 @@
   <aside id="share-prompt" class="share-prompt" hidden aria-live="polite">
     <button type="button" class="share-prompt-close" aria-label="シェア案内を閉じる">×</button>
     <p class="share-prompt-label">投票ありがとうございました</p>
-    <p class="share-prompt-text">この一手を主要SNSに投稿して、次のラウンドの参加者を増やしましょう。</p>
+    <p class="share-prompt-text">この一手をみんなに知らせしましょう。</p>
     <div class="share-prompt-actions">
       <a id="share-link-x" class="share-prompt-link" href="#" target="_blank" rel="noopener noreferrer">Xに投稿</a>
+      <a id="share-link-threads" class="share-prompt-link share-prompt-link-threads" href="#" target="_blank" rel="noopener noreferrer">Threadsに投稿</a>
       <a id="share-link-facebook" class="share-prompt-link share-prompt-link-facebook" href="#" target="_blank" rel="noopener noreferrer">Facebookに投稿</a>
       <a id="share-link-line" class="share-prompt-link share-prompt-link-line" href="#" target="_blank" rel="noopener noreferrer">LINEで送る</a>
     </div>
@@ -182,11 +201,12 @@
       const countdownEl = document.getElementById('countdown');
       const sharePromptEl = document.getElementById('share-prompt');
       const shareLinkX = document.getElementById('share-link-x');
+      const shareLinkThreads = document.getElementById('share-link-threads');
       const shareLinkFacebook = document.getElementById('share-link-facebook');
       const shareLinkLine = document.getElementById('share-link-line');
       const sharePromptClose = document.querySelector('.share-prompt-close');
       const shouldShowSharePrompt = {{ 'true' if show_share_prompt else 'false' }};
-      const selectedMoveUsi = {{ request.args.get('move_usi', '')|tojson }};
+      const selectedMoveUsi = {{ selected_move_usi|tojson }};
       const shareMoveLabels = {{ legal_move_labels|tojson }};
       const serverNowEpoch = {{ server_now_epoch }};
       const cutoffEpoch = {{ cutoff_epoch }};
@@ -195,6 +215,7 @@
       const sharePromptStorageKey = 'share-prompt-seen-{{ round_index }}-{{ cutoff_epoch }}';
       let sharePromptShown = false;
       let shareIntentHrefX = "#";
+      let shareIntentHrefThreads = "#";
       let shareIntentHrefFacebook = "#";
       let shareIntentHrefLine = "#";
 
@@ -222,7 +243,7 @@
         currentUrl.searchParams.delete('share');
 
         const selectedMoveLabel = shareMoveLabels[selectedMoveUsi] || selectedMoveUsi || '（手を選択）';
-        const shareText = `#超合議制将棋 第{{ round_index }}ラウンドで「${selectedMoveLabel}」に投票しました。`;
+        const shareText = `#超合議制将棋 {{ round_index }}手目で「${selectedMoveLabel}」に投票しました。`;
 
         const shareUrlX = new URL('https://twitter.com/intent/tweet');
         shareUrlX.searchParams.set('text', shareText);
@@ -234,11 +255,16 @@
         shareUrlFacebook.searchParams.set('quote', shareText);
         shareIntentHrefFacebook = shareUrlFacebook.toString();
 
+        const shareUrlThreads = new URL('https://www.threads.net/intent/post');
+        shareUrlThreads.searchParams.set('text', `${shareText}\n${currentUrl.toString()}`);
+        shareIntentHrefThreads = shareUrlThreads.toString();
+
         const shareUrlLine = new URL('https://social-plugins.line.me/lineit/share');
         shareUrlLine.searchParams.set('url', `${currentUrl.toString()}\n${shareText}`);
         shareIntentHrefLine = shareUrlLine.toString();
 
         if (shareLinkX) shareLinkX.href = shareIntentHrefX;
+        if (shareLinkThreads) shareLinkThreads.href = shareIntentHrefThreads;
         if (shareLinkFacebook) shareLinkFacebook.href = shareIntentHrefFacebook;
         if (shareLinkLine) shareLinkLine.href = shareIntentHrefLine;
 
