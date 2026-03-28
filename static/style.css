@@ -56,6 +56,42 @@ nav a {
   gap: 10px;
 }
 
+.summary-card {
+  display: grid;
+  gap: 8px;
+}
+
+.summary-lead {
+  margin: 0;
+  font-size: 0.98rem;
+  line-height: 1.45;
+  font-weight: 600;
+}
+
+.summary-grid {
+  display: grid;
+  gap: 4px 10px;
+}
+
+.summary-grid p {
+  margin: 0;
+  font-size: 0.92rem;
+  line-height: 1.4;
+}
+
+.summary-cta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: fit-content;
+  text-decoration: none;
+  background: #2f6feb;
+  color: #fff;
+  border-radius: 999px;
+  padding: 8px 14px;
+  font-weight: 700;
+}
+
 .card {
   background: #fff;
   border-radius: 10px;
@@ -332,6 +368,23 @@ form.inline {
     gap: 12px;
   }
 
+  .summary-card {
+    grid-column: 1 / -1;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+  }
+
+  .summary-grid {
+    grid-column: 1 / 2;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .summary-cta {
+    grid-column: 2 / 3;
+    grid-row: 1 / span 2;
+    justify-self: end;
+  }
+
   .right-column {
     position: sticky;
     top: 10px;
@@ -353,6 +406,22 @@ form.inline {
 }
 
 @media (max-width: 600px) {
+  .summary-card {
+    gap: 7px;
+  }
+
+  .summary-lead {
+    font-size: 0.94rem;
+  }
+
+  .summary-grid p {
+    font-size: 0.88rem;
+  }
+
+  .summary-cta {
+    width: 100%;
+  }
+
   .board td,
   .board-coord th {
     width: 30px;

@@ -36,8 +36,25 @@
   </header>
 
   <main class="container top-layout">
+    <section class="card summary-card">
+      <p class="summary-lead">みんなで1日1手、次の一手を投票で決める将棋を楽しもう。</p>
+      <div class="summary-grid">
+        <p><strong>現在手番：</strong>{{ side_to_move }}</p>
+        <p><strong>最終手：</strong>
+          {% if last_move_text == "開始局面" %}
+            {{ last_move_text }}
+          {% else %}
+            {{ last_move_text }}反映
+          {% endif %}
+        </p>
+        <p><strong>締切：</strong>毎日 {{ cutoff_time }}（<span id="summary-countdown"></span>）</p>
+        <p><strong>現在の首位手：</strong>{% if top_move %}{{ top_move.ki2 }}（{{ top_move.votes }}票）{% else %}まだ投票なし{% endif %}</p>
+      </div>
+      <a class="summary-cta" href="#vote-start">盤面で一手を選ぶ</a>
+    </section>
+
     <section class="left-column">
-      <section class="card board-card">
+      <section class="card board-card" id="vote-start">
         <h2 class="board-title">現在局面</h2>
 
         <div class="board-layout" aria-label="将棋盤">
@@ -207,6 +224,7 @@
   <script>
     (function () {
       const countdownEl = document.getElementById('countdown');
+      const summaryCountdownEl = document.getElementById('summary-countdown');
       const sharePromptEl = document.getElementById('share-prompt');
       const shareLinkX = document.getElementById('share-link-x');
       const shareLinkThreads = document.getElementById('share-link-threads');
@@ -295,7 +313,9 @@
         const h = Math.floor(remain / 3600);
         const m = Math.floor((remain % 3600) / 60);
         const s = remain % 60;
-        countdownEl.textContent = remain === 0 ? '投票受付終了' : `${h}時間 ${m}分 ${s}秒`;
+        const countdownText = remain === 0 ? '投票受付終了' : `${h}時間 ${m}分 ${s}秒`;
+        if (countdownEl) countdownEl.textContent = countdownText;
+        if (summaryCountdownEl) summaryCountdownEl.textContent = countdownText;
         maybeShowSharePrompt(remain);
       }
 
