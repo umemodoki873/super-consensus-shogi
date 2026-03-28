@@ -646,6 +646,7 @@ def index():
                 "votes": row["votes"],
             }
         )
+    top_move = ranking_display[0] if ranking_display else None
 
     voter_token = get_client_token()
     voted = has_voted(game_id, round_index, voter_token)
@@ -698,6 +699,7 @@ def index():
             legal_move_labels=legal_move_labels,
             selected_move_usi=selected_move_usi,
             ranking_display=ranking_display,
+            top_move=top_move,
             voted=voted,
             show_share_prompt=show_share_prompt,
             share_url_x=share_url_x,
