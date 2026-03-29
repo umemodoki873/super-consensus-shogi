@@ -53,6 +53,28 @@ def test_finalize_round_adopts_last_voted_move_when_votes_are_tied(tmp_path):
     assert stored["voted_count"] == 1
 
 
+def test_finalize_round_is_idempotent_for_same_round(tmp_path):
+    game_id = setup_temp_db(tmp_path)
+    board = shogi.Board()
+    move = next(iter(board.legal_moves)).usi()
+
+    with shogi_app.app.app_context():
+        assert shogi_app.register_vote(game_id, 0, move, "voter-1", "127.0.0.1")
+        first = shogi_app.finalize_round(game_id)
+        second = shogi_app.finalize_round(game_id)
+        db = shogi_app.get_db()
+        rows = db.execute(
+            "SELECT ply, usi FROM moves WHERE game_id = ? ORDER BY id ASC",
+            (game_id,),
+        ).fetchall()
+
+    assert first == move
+    assert second is None
+    assert len(rows) == 1
+    assert rows[0]["ply"] == 1
+    assert rows[0]["usi"] == move
+
+
 def test_board_coordinate_labels_use_numbers_on_top_and_kanji_on_side():
     assert shogi_app.board_top_labels(False) == [str(n) for n in range(9, 0, -1)]
     assert shogi_app.board_side_labels(False) == ["一", "二", "三", "四", "五", "六", "七", "八", "九"]

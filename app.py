@@ -55,6 +55,7 @@ def init_db() -> None:
             decided_at TEXT NOT NULL,
             FOREIGN KEY(game_id) REFERENCES games(id)
         );
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_moves_game_ply_unique ON moves(game_id, ply);
 
         CREATE TABLE IF NOT EXISTS votes (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -146,7 +147,7 @@ def build_board(game_id: int, upto_ply: Optional[int] = None) -> shogi.Board:
     if upto_ply is not None:
         query += " AND ply <= ?"
         params.append(upto_ply)
-    query += " ORDER BY ply ASC"
+    query += " ORDER BY ply ASC, id ASC"
 
     rows = db.execute(query, tuple(params)).fetchall()
     for row in rows:
@@ -535,42 +536,58 @@ def register_vote(game_id: int, round_index: int, move_usi: str, voter_token: st
 
 
 def finalize_round(game_id: int) -> Optional[str]:
-    board = build_board(game_id)
-    if board.is_game_over():
-        return None
-
-    round_index = get_round_index(game_id)
-    ranking = get_vote_ranking(game_id, round_index)
-    if not ranking:
-        return None
-
-    top = ranking[0]
-    move_usi = top["move_usi"]
-    legal_usi = {m.usi() for m in board.legal_moves}
-    if move_usi not in legal_usi:
-        return None
-
-    move = shogi.Move.from_usi(move_usi)
-    kif = move_to_kif(move, board)
-    board.push(move)
-
     db = get_db()
-    db.execute(
-        """
-        INSERT INTO moves(game_id, ply, usi, kif, voted_count, decided_at)
-        VALUES(?, ?, ?, ?, ?, ?)
-        """,
-        (game_id, round_index + 1, move_usi, kif, int(top["votes"]), now_str()),
-    )
+    db.execute("BEGIN IMMEDIATE")
+    try:
+        board = build_board(game_id)
+        if board.is_game_over():
+            db.rollback()
+            return None
 
-    if board.is_game_over():
+        round_index = get_round_index(game_id)
+        already_finalized = db.execute(
+            "SELECT 1 FROM moves WHERE game_id = ? AND ply = ? LIMIT 1",
+            (game_id, round_index + 1),
+        ).fetchone()
+        if already_finalized is not None:
+            db.rollback()
+            return None
+
+        ranking = get_vote_ranking(game_id, round_index)
+        if not ranking:
+            db.rollback()
+            return None
+
+        top = ranking[0]
+        move_usi = top["move_usi"]
+        legal_usi = {m.usi() for m in board.legal_moves}
+        if move_usi not in legal_usi:
+            db.rollback()
+            return None
+
+        move = shogi.Move.from_usi(move_usi)
+        kif = move_to_kif(move, board)
+        board.push(move)
+
         db.execute(
-            "UPDATE games SET status = 'finished', finished_at = ? WHERE id = ?",
-            (now_str(), game_id),
+            """
+            INSERT INTO moves(game_id, ply, usi, kif, voted_count, decided_at)
+            VALUES(?, ?, ?, ?, ?, ?)
+            """,
+            (game_id, round_index + 1, move_usi, kif, int(top["votes"]), now_str()),
         )
 
-    db.commit()
-    return move_usi
+        if board.is_game_over():
+            db.execute(
+                "UPDATE games SET status = 'finished', finished_at = ? WHERE id = ?",
+                (now_str(), game_id),
+            )
+
+        db.commit()
+        return move_usi
+    except sqlite3.IntegrityError:
+        db.rollback()
+        return None
 
 
 def maybe_auto_finalize() -> None:
