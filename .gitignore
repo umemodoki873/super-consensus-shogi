@@ -7,3 +7,7 @@ instance/
 *.db
 *.sqlite3
 .DS_Store
+admin.json
+*.log
+nohup.out
+.pytest_cache/
