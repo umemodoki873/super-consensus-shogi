@@ -1,4 +1,5 @@
 import os
+import secrets
 import sqlite3
 import uuid
 from datetime import datetime, timedelta
@@ -7,7 +8,8 @@ from typing import Optional
 from urllib.parse import urlencode
 
 import shogi
-from flask import Flask, Response, g, redirect, render_template, request, url_for, make_response
+from flask import Flask, Response, g, redirect, render_template, request, session, url_for, make_response
+from werkzeug.security import check_password_hash
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DB_PATH = os.path.join(BASE_DIR, "shogi.db")
@@ -15,6 +17,84 @@ DEFAULT_CUTOFF_HOUR = 0
 DEFAULT_CUTOFF_MINUTE = 0
 
 app = Flask(__name__)
+app.config.update(
+    SECRET_KEY=os.environ.get("SHOGI_SECRET_KEY") or None,
+    ADMIN_USER=os.environ.get("SHOGI_ADMIN_USER", ""),
+    ADMIN_PASSWORD_HASH=os.environ.get("SHOGI_ADMIN_PASSWORD_HASH", ""),
+    SESSION_COOKIE_NAME="shogi_admin_session",
+    SESSION_COOKIE_PATH="/admin",
+    SESSION_COOKIE_SECURE=True,
+    SESSION_COOKIE_HTTPONLY=True,
+    SESSION_COOKIE_SAMESITE="Lax",
+    PERMANENT_SESSION_LIFETIME=timedelta(hours=8),
+)
+
+
+# Reject unauthorized administration before setup() can initialize or update the DB.
+@app.before_request
+def protect_admin():
+    if request.endpoint != "admin":
+        return None
+
+    username = app.config.get("ADMIN_USER")
+    password_hash = app.config.get("ADMIN_PASSWORD_HASH")
+    if not username or not password_hash or not app.secret_key:
+        return Response("管理機能の設定が完了していません。", status=503, mimetype="text/plain")
+
+    auth = request.authorization
+    authorized = False
+    if (
+        auth is not None
+        and auth.type == "basic"
+        and isinstance(auth.username, str)
+        and isinstance(auth.password, str)
+        and len(auth.username) <= 128
+        and len(auth.password) <= 1024
+    ):
+        try:
+            authorized = secrets.compare_digest(
+                auth.username.encode("utf-8"), username.encode("utf-8")
+            ) and check_password_hash(password_hash, auth.password)
+        except (TypeError, ValueError):
+            return Response("管理機能の設定を確認してください。", status=503, mimetype="text/plain")
+    if not authorized:
+        return Response(
+            "管理者の認証が必要です。",
+            status=401,
+            mimetype="text/plain",
+            headers={"WWW-Authenticate": 'Basic realm="Shogi admin", charset="UTF-8"'},
+        )
+
+    if request.method == "POST":
+        expected = session.get("admin_csrf_token")
+        submitted = request.form.get("csrf_token", "")
+        if not (
+            isinstance(expected, str)
+            and expected
+            and submitted
+            and secrets.compare_digest(expected.encode("utf-8"), submitted.encode("utf-8"))
+        ):
+            return Response(
+                "操作を確認できませんでした。管理ページを開き直してください。",
+                status=400,
+                mimetype="text/plain",
+            )
+    elif "admin_csrf_token" not in session:
+        session["admin_csrf_token"] = secrets.token_urlsafe(32)
+    return None
+
+
+@app.after_request
+def protect_admin_response(response):
+    if request.endpoint == "admin":
+        response.headers["Cache-Control"] = "no-store"
+        response.headers["X-Frame-Options"] = "DENY"
+        response.headers["Content-Security-Policy"] = (
+            "frame-ancestors 'none'; form-action 'self'; base-uri 'none'"
+        )
+        response.headers["Referrer-Policy"] = "no-referrer"
+        response.headers["X-Content-Type-Options"] = "nosniff"
+    return response
 
 
 # ----------------------------
@@ -916,10 +996,11 @@ def admin():
         "admin.html",
         title="管理",
         message=message,
+        csrf_token=session["admin_csrf_token"],
         cutoff_hour=hour,
         cutoff_minute=minute,
     )
 
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000, debug=True)
+    app.run(host="127.0.0.1", port=5000, debug=False, use_reloader=False)

@@ -22,6 +22,7 @@ super-consensus-shogi/
 
 - Flask
 - python-shogi
+- Gunicorn（本番用のHTTPサーバー。Python 3.10以上）
 
 `requirements.txt` に記載済みです。
 
@@ -49,62 +50,109 @@ super-consensus-shogi/
 ### 5-1. インストール
 
 ```bash
-python -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
+python3 -m venv venv
+venv/bin/python -m pip install -r requirements.txt
 ```
 
-### 5-2. 起動
+既に `venv` がある環境では作り直さず、その環境へインストールします。
+Gunicornは公式26.2.2の固定コミットとSHA-256を指定しています。
+確認時点でPyPIが26.2.0までだったため、修正版の公式GitHubソースを使っています。
+参照: https://github.com/benoitc/gunicorn/releases/tag/26.2.2
+
+### 5-2. 管理者設定（初回のみ）
 
 ```bash
-python app.py
+venv/bin/python scripts/configure_admin.py
 ```
 
-ブラウザで以下を開きます。
+ユーザー名と12文字以上の管理パスワードを入力します。パスワード入力は画面に表示されません。
+設定は `~/.config/super-consensus-shogi/admin.json` に権限600で保存します。
+平文パスワードは保存せず、パスワードハッシュと固定のセッション用秘密を使います。
+既存設定は上書きしません。設定ファイルの内容やパスワードを共有・コミットしないでください。
+
+### 5-3. 本番起動
+
+```bash
+venv/bin/python scripts/run_server.py --check
+venv/bin/python scripts/run_server.py
+```
+
+`--check` は設定とアプリの読み込みを確認します。起動後のHTTP応答確認は別に行います。
+Gunicornを1 worker・syncで起動し、`127.0.0.1:5000` だけで待ち受けます。
+既存サーバーが5000番を使っている場合は、対象プロセスを停止してから切り替えてください。
+アプリは通常ユーザーで起動します。
+
+ローカルの表示確認先:
 
 - トップ: `http://localhost:5000/`
 - 履歴: `http://localhost:5000/history`
-- 管理: `http://localhost:5000/admin`
 
 初回アクセス時に `shogi.db` が自動作成されます。
+公開する場合はCloudflare Tunnelの接続先を `http://127.0.0.1:5000` にします。
+管理画面は **HTTPSの公開URLの `/admin`** を開き、ブラウザーの認証画面で設定した情報を入力します。
+管理用CookieはSecure属性を付けるため、通常のHTTP接続では管理POSTの確認はできません。
+
+管理GETとPOSTは認証が必要です。管理POSTにはセッションごとのCSRFトークンも必要です。
+秘密設定がない場合、管理機能は503で拒否します。公開の投票・履歴はログイン不要です。
+直接 `python app.py` で起動した場合も、デバッグは無効でlocalhostだけで待ち受けます。
+公開運用は上記の本番起動コマンドを使ってください。
+
+### 5-4. テスト
+
+```bash
+venv/bin/python -m pip install -r requirements-dev.txt
+venv/bin/python -m pytest -q
+```
+
+テストは一時データベースを使います。既存の `shogi.db` は使いません。
+管理認証、CSRF、設定ファイルの扱い、匿名投票・履歴・集計を確認します。
 
 ## 6. cron運用（本番想定）
 
-MVPでは、リクエスト時に締切超過を検知して自動進行を試みます。  
-本番では cron で管理処理を叩く構成を推奨します（例: 毎日0時）。
-
-例（将来的に `curl` で管理エンドポイントを呼ぶ想定）:
+MVPでは、通常のページへのリクエスト時に締切超過を検知して自動進行を試みます。
+そのため、起動確認でトップページを開いた場合も、期限越えの投票があれば集計されます。
+定時チェックを行う場合は、例えば次のように通常ページへアクセスします。
 
 ```cron
-0 0 * * * curl -s http://127.0.0.1:5000/admin
+0 0 * * * curl -fsS -o /dev/null http://127.0.0.1:5000/
 ```
 
-> 現状のMVPは管理画面の「今すぐ集計」ボタンを使うのが確実です。
+`/admin` への未認証アクセスでは、DB初期化や自動集計も行いません。
+手動集計は、認証済みの管理画面の「今すぐ集計」ボタンを使います。
 
 ## 7. 今の実装で未対応の点
 
 - 厳密な終局理由表示（詰み・千日手などの詳細表示）
 - 投票締切をまたぐ厳密なラウンド開始時刻管理
 - 複数同票時の高度なタイブレーク（現状はUSI文字列昇順）
-- 管理画面の認証
 - 複数対局の同時運用
 
 ## 8. 次に追加するとよい機能（優先度順）
 
-1. 管理画面の認証（最低限のパスワード保護）
-2. cron専用の安全な集計エンドポイント追加（トークン付き）
-3. 千日手・入玉・詰みなど終局ステータス表示
-4. 投票候補の絞り込みUI（駒種/移動元/移動先検索）
-5. 対局アーカイブ（過去ゲーム一覧と再生）
+1. cron専用の安全な集計エンドポイント追加（トークン付き）
+2. 千日手・入玉・詰みなど終局ステータス表示
+3. 投票候補の絞り込みUI（駒種/移動元/移動先検索）
+4. 対局アーカイブ（過去ゲーム一覧と再生）
 
 ## 9. ラズベリーパイにデプロイする最小手順
 
-1. Raspberry PiにPython3を用意
-2. プロジェクトを配置し、仮想環境を作成
-3. `pip install -r requirements.txt`
-4. `python app.py` で起動確認
-5. 常駐化する場合は `systemd` サービス化
-6. 日次進行は cron + 管理操作（将来的に専用エンドポイント化推奨）
+1. 公開中ならTunnelを停止し、コードとSQLiteバックアップを保存
+2. 旧Flaskプロセスを停止し、5000番の待受が消えたことを確認
+3. 修正版を配置し、既存venvへ依存を導入してテスト
+4. 初回のみ `scripts/configure_admin.py` で管理設定を作成
+5. `scripts/run_server.py --check` の後、本番サーバーを起動
+6. 待受が `127.0.0.1:5000`、トップが200、未認証の管理画面が401であることを確認
+7. Tunnelを再開し、HTTPSから管理画面の認証と表示を確認
+
+SSHを閉じた後も動かす場合の起動例:
+
+```bash
+nohup venv/bin/python scripts/run_server.py >> flask.log 2>&1 < /dev/null &
+```
+
+これはOS再起動時の自動起動設定ではありません。必要に応じて後からsystemdへ移行します。
+Quick Tunnelを新しく起動すると、公開URLは変わります。
+この修正は管理認証と本番起動の対策です。大量アクセス対策や家庭LANの分離は別途検討が必要です。
 
 ---
 
